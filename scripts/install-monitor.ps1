@@ -257,7 +257,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $projectRoot "data\browser-
 $contextsPath = Join-Path $localConfigDir "contexts.toml"
 $profilesPath = Join-Path $localConfigDir "profiles.toml"
 
-if ((Test-Path -LiteralPath $contextsPath -or Test-Path -LiteralPath $profilesPath) -and -not $Force) {
+if (((Test-Path -LiteralPath $contextsPath) -or (Test-Path -LiteralPath $profilesPath)) -and -not $Force) {
     $overwrite = Read-YesNo -Prompt "Ja existe configuracao local. Deseja sobrescrever?" -DefaultValue $false
     if (-not $overwrite) {
         throw "Instalacao cancelada para evitar sobrescrever a configuracao atual."
