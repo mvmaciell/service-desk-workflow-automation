@@ -10,20 +10,20 @@ if ($IntervalMinutes -lt 1) {
 }
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$pythonPath = Join-Path $projectRoot ".venv\Scripts\python.exe"
-$mainPath = Join-Path $projectRoot "main.py"
+$powershellPath = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
+$runnerPath = Join-Path $projectRoot "scripts\run-background.ps1"
 
-if (-not (Test-Path -LiteralPath $pythonPath)) {
-    throw "Python nao encontrado em '$pythonPath'."
+if (-not (Test-Path -LiteralPath $powershellPath)) {
+    throw "PowerShell nao encontrado em '$powershellPath'."
 }
 
-if (-not (Test-Path -LiteralPath $mainPath)) {
-    throw "Arquivo main.py nao encontrado em '$mainPath'."
+if (-not (Test-Path -LiteralPath $runnerPath)) {
+    throw "Arquivo run-background.ps1 nao encontrado em '$runnerPath'."
 }
 
 $action = New-ScheduledTaskAction `
-    -Execute $pythonPath `
-    -Argument "`"$mainPath`" run-once" `
+    -Execute $powershellPath `
+    -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$runnerPath`"" `
     -WorkingDirectory $projectRoot
 
 $trigger = New-ScheduledTaskTrigger `

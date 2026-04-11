@@ -159,7 +159,22 @@ function Set-OrReplaceEnvValue {
         $lines += "$Key=$Value"
     }
 
-    Set-Content -LiteralPath $FilePath -Value $lines -Encoding UTF8
+    Write-Utf8NoBom -FilePath $FilePath -Content ($lines -join [Environment]::NewLine)
+}
+
+function Write-Utf8NoBom {
+    param(
+        [string]$FilePath,
+        [string]$Content
+    )
+
+    $directory = Split-Path -Parent $FilePath
+    if ($directory) {
+        New-Item -ItemType Directory -Force -Path $directory | Out-Null
+    }
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($FilePath, $Content, $utf8NoBom)
 }
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -360,8 +375,8 @@ consultants = []
 "@
 }
 
-Set-Content -LiteralPath $contextsPath -Value $contextsContent.TrimStart() -Encoding UTF8
-Set-Content -LiteralPath $profilesPath -Value $profilesContent.TrimStart() -Encoding UTF8
+Write-Utf8NoBom -FilePath $contextsPath -Content $contextsContent.TrimStart()
+Write-Utf8NoBom -FilePath $profilesPath -Content $profilesContent.TrimStart()
 
 if ($RegisterTask) {
     & (Join-Path $projectRoot "scripts\register-task.ps1")

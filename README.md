@@ -32,7 +32,9 @@ Motor local de monitoramento para o MegaHub com suporte a:
 - `config/contexts.toml`: fallback versionado para desenvolvimento
 - `config/routing.toml`: fallback legado para desenvolvimento
 - `scripts/install-monitor.ps1`: instalador interativo por maquina
+- `scripts/install-augusto.ps1`: instalador pre-configurado para o Augusto
 - `scripts/register-task.ps1`: registro da tarefa no Agendador do Windows
+- `scripts/run-background.ps1`: wrapper silencioso para execucao em background
 - `src/megahub_monitor/browser/`: sessoes persistentes do navegador
 - `src/megahub_monitor/collectors/`: coleta da grade por fonte
 - `src/megahub_monitor/notifiers/`: envio de cards para o Teams
@@ -68,6 +70,24 @@ O instalador:
 - gera `config/local/profiles.toml`
 - opcionalmente registra a tarefa automatica no Windows
 - opcionalmente abre a tela de login no final
+
+### Instalador pre-configurado do Augusto
+
+Para a maquina do Augusto, existe um instalador pronto:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-augusto.ps1
+```
+
+Fluxo desse instalador:
+
+1. prepara o ambiente local
+2. configura o perfil do Augusto e ativa a `Fila`
+3. faz teste de notificacao no Teams
+4. abre o login visivel para ele autenticar a conta
+5. testa a leitura real da `Fila`
+6. ativa modo `headless`
+7. registra a tarefa automatica em background
 
 ### O que o instalador pergunta
 
@@ -179,6 +199,8 @@ Forma recomendada para background:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\register-task.ps1
 ```
+
+A tarefa chama `scripts/run-background.ps1`, que executa `run-once` sem abrir janela de console. Com `BROWSER_HEADLESS=true`, o navegador tambem nao fica visivel.
 
 Parametros opcionais:
 
