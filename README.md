@@ -3,8 +3,8 @@
 Motor local de monitoramento para o MegaHub com suporte a:
 
 - multiplas fontes (`Minha Fila` e `Fila`)
-- multiplos destinatarios
-- regras de roteamento por perfil
+- perfis de notificacao configuraveis por instalacao
+- subscricoes com filtros por fonte, tipo, prioridade, empresa e consultor
 - notificacao no Teams via Power Automate
 - baseline por fonte
 - execucao `run-once` para Agendador do Windows
@@ -12,9 +12,10 @@ Motor local de monitoramento para o MegaHub com suporte a:
 ## Escopo atual
 
 - `Minha Fila` operacional e validada
-- `Fila` preparada no codigo, mas desabilitada ate a liberacao de acesso
+- `Fila` preparada no codigo, mas pendente de validacao real quando houver acesso
 - primeira pagina apenas
 - carga atual por consultor calculada a partir da snapshot da fonte
+- configuracao local por maquina via `config/local`
 
 ## Stack
 
@@ -27,8 +28,11 @@ Motor local de monitoramento para o MegaHub com suporte a:
 ## Estrutura
 
 - `main.py`: entrada da CLI
-- `config/contexts.toml`: contextos autenticados e fontes
-- `config/routing.toml`: destinatarios e regras
+- `config/local/`: configuracao local gerada pelo instalador
+- `config/contexts.toml`: fallback versionado para desenvolvimento
+- `config/routing.toml`: fallback legado para desenvolvimento
+- `scripts/install-monitor.ps1`: instalador interativo por maquina
+- `scripts/register-task.ps1`: registro da tarefa no Agendador do Windows
 - `src/megahub_monitor/browser/`: sessoes persistentes do navegador
 - `src/megahub_monitor/collectors/`: coleta da grade por fonte
 - `src/megahub_monitor/notifiers/`: envio de cards para o Teams
@@ -36,22 +40,54 @@ Motor local de monitoramento para o MegaHub com suporte a:
 - `src/megahub_monitor/services/`: detecao, roteamento, carga e execucao
 - `data/`: banco, logs, lock e perfis de navegador
 
-## Instalacao
+## Modelo de configuracao
+
+Cada instalacao da ferramenta passa a ter:
+
+- `contexts`: sessoes autenticadas e fontes monitoradas naquela maquina
+- `profiles`: pessoas ou canais que recebem notificacoes
+- `subscriptions`: regras do que cada perfil recebe
+
+Isso permite que cada usuario ou gestor tenha sua propria configuracao local sem hardcode de nomes no codigo.
+
+## Instalacao recomendada
+
+Use o instalador PowerShell:
 
 ```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -m playwright install
-Copy-Item .env.example .env
+powershell -ExecutionPolicy Bypass -File .\scripts\install-monitor.ps1
 ```
 
-Preencha no `.env`:
+O instalador:
 
-- `TEAMS_WEBHOOK_URL`
-- opcionalmente caminhos de banco/log/configs
+- cria `.venv` se necessario
+- instala dependencias
+- instala os navegadores do Playwright
+- cria `.env` se nao existir
+- gera `config/local/contexts.toml`
+- gera `config/local/profiles.toml`
+- opcionalmente registra a tarefa automatica no Windows
+- opcionalmente abre a tela de login no final
 
-## Configuracao
+### O que o instalador pergunta
+
+- nome do perfil principal
+- papel do perfil principal (`consultor`, `coordenador`, `gestor`)
+- webhook do Teams do perfil principal
+- se deve adicionar um segundo perfil
+- se deve ativar `Minha Fila`
+- se deve ativar `Fila`
+- nome do consultor para a fonte `Minha Fila`
+- se deve registrar a tarefa automatica
+- se deve abrir o login no final
+
+### Limite atual do instalador
+
+O instalador gera uma configuracao simples com **uma sessao principal**.
+
+Se uma mesma maquina precisar monitorar `Minha Fila` e `Fila` com **contas diferentes**, o motor suporta isso, mas a configuracao avancada ainda precisa ser ajustada manualmente no `config/local/contexts.toml`.
+
+## Configuracao local
 
 ### `.env`
 
@@ -59,32 +95,33 @@ Preencha no `.env`:
 - `LOCK_FILE_PATH`: lock do `run-once`
 - `BROWSER_HEADLESS`: `true` ou `false`
 - `PLAYWRIGHT_CHANNEL`: `msedge` por padrao
+- `PLAYWRIGHT_TIMEOUT_MS`
 - `DATABASE_PATH`
 - `LOG_FILE_PATH`
 - `CONTEXTS_CONFIG_PATH`
-- `ROUTING_CONFIG_PATH`
-- `TEAMS_WEBHOOK_URL`
+- `PROFILES_CONFIG_PATH`
+- `TEAMS_REQUEST_TIMEOUT_SECONDS`
 
-### `config/contexts.toml`
+### `config/local/contexts.toml`
 
-Define contextos autenticados e fontes monitoradas.
+Define:
 
-Exemplo atual:
+- sessoes persistentes do navegador
+- fontes habilitadas naquela instalacao
 
-- `marcus-session`: contexto ativo usando `data/browser-profile`
-- `gestor-session`: contexto preparado para a conta gerencial
-- `minha_fila_marcus`: fonte ativa
-- `fila_gerencial`: fonte preparada e desabilitada
+### `config/local/profiles.toml`
 
-### `config/routing.toml`
+Define:
 
-Define destinatarios e regras de roteamento.
+- `profiles`: quem recebe notificacao
+- `subscriptions`: o que cada perfil recebe
 
-Exemplo atual:
+Filtros suportados por subscricao:
 
-- `marcus`: recebe alertas da `Minha Fila`
-- `augusto`: preparado para receber alertas da `Fila`
-- ambos usam o mesmo webhook nesta fase
+- `ticket_types`
+- `priorities`
+- `companies`
+- `consultants`
 
 ## Comandos
 
@@ -92,21 +129,21 @@ Exemplo atual:
 
 ```powershell
 python main.py login
-python main.py login --source minha_fila_marcus
-python main.py login --context gestor-session
+python main.py login --source minha_fila_principal
+python main.py login --context main-session
 ```
 
 ### Teste de notificacao
 
 ```powershell
 python main.py notify-test
-python main.py notify-test --recipient marcus
+python main.py notify-test --profile marcus-vinicius-maciel-vieira
 ```
 
 ### Snapshot de uma fonte
 
 ```powershell
-python main.py snapshot --source minha_fila_marcus
+python main.py snapshot --source minha_fila_principal
 ```
 
 ### Execucao unica
@@ -120,7 +157,7 @@ Comportamento:
 - percorre todas as fontes habilitadas
 - cria baseline inicial por fonte sem notificar
 - detecta novos chamados nas execucoes seguintes
-- roteia alertas conforme `routing.toml`
+- roteia alertas conforme `profiles.toml`
 
 ### Loop continuo
 
@@ -131,17 +168,13 @@ python main.py monitor
 ### Forcar reprocessamento em demo
 
 ```powershell
-python main.py forget-ticket 41487 --source minha_fila_marcus
+python main.py forget-ticket 41487 --source minha_fila_principal
 python main.py run-once
 ```
 
 ## Agendador do Windows
 
 Forma recomendada para background:
-
-1. registrar a tarefa com o script abaixo
-2. manter intervalo de `2 minutos`
-3. o script cria uma tarefa para executar `run-once` com lockfile
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\register-task.ps1
@@ -169,29 +202,30 @@ Banco SQLite em `data/megahub-monitor.db`:
 - `source_seen_tickets`: chamados vistos por fonte
 - `source_snapshots`: snapshots completos por fonte
 - `load_snapshots`: carga atual por consultor
-- `notification_deliveries`: entregas por regra/destinatario
+- `notification_deliveries`: entregas por subscricao/perfil
 
 ## Validacao realizada
 
 Validado localmente nesta fase:
 
 - `notify-test` com Adaptive Card
-- `snapshot` da fonte `minha_fila_marcus`
+- `snapshot` da fonte ativa da `Minha Fila`
 - `run-once` com baseline por fonte
-- alerta segmentado do consultor com ticket forzado
+- alerta segmentado do consultor com ticket forcado
+- registro e execucao automatica via Agendador do Windows
 
 ## Limitacoes
 
 - primeira pagina apenas
 - depende do HTML/DOM atual do MegaHub
-- a fonte `Fila` ainda nao foi validada porque o acesso nao esta liberado
-- o mesmo webhook esta sendo usado por mais de um perfil nesta fase
+- a fonte `Fila` ainda nao foi validada porque o acesso real nao esta liberado
+- o instalador ainda cobre o caso simples de uma sessao principal por maquina
 - ainda nao existe dashboard nem distribuicao automatica
 
 ## Proximos passos
 
-- habilitar e validar a fonte `fila_gerencial`
-- confirmar filtros reais da tela `Fila`
-- validar carga por consultor com dados gerenciais reais
-- separar webhooks por perfil/canal
-- evoluir para multiplas filas e paginacao completa
+- validar a fonte `Fila` na maquina do gestor
+- separar webhooks por perfil/canal quando necessario
+- evoluir o instalador para mais de uma sessao autenticada por maquina
+- adicionar suporte a paginacao completa
+- preparar empacotamento distribuivel quando o formato operacional estabilizar

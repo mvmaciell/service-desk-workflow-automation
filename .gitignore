@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+config/local/
 
 data/*.db
 data/*.lock
@@ -11,5 +12,7 @@ data/browser-profile/*
 !data/browser-profile/.gitkeep
 data/browser-profile-gestor/*
 !data/browser-profile-gestor/.gitkeep
+data/browser-profile-main/*
+!data/browser-profile-main/.gitkeep
 data/logs/*
 !data/logs/.gitkeep
