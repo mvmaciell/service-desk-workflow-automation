@@ -139,9 +139,21 @@ python main.py run-once
 
 Forma recomendada para background:
 
-1. criar tarefa no Agendador do Windows
-2. acionar a cada `2 minutos`
-3. comando:
+1. registrar a tarefa com o script abaixo
+2. manter intervalo de `2 minutos`
+3. o script cria uma tarefa para executar `run-once` com lockfile
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\register-task.ps1
+```
+
+Parametros opcionais:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\register-task.ps1 -TaskName "MegaHub Queue Monitor" -IntervalMinutes 2
+```
+
+Se preferir criar manualmente, o comando alvo e:
 
 ```powershell
 C:\Users\mvmac\OneDrive\Documentos\New project\.venv\Scripts\python.exe C:\Users\mvmac\OneDrive\Documentos\New project\main.py run-once
