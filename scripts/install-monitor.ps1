@@ -108,30 +108,68 @@ function Resolve-PythonCommand {
 
     $venvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
     if (Test-Path -LiteralPath $venvPython) {
+        $versionOutput = & $venvPython --version 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "O Python do ambiente virtual existe, mas nao conseguiu responder com sucesso. Remova a pasta .venv e execute a instalacao novamente."
+        }
+
         return @{
             CreateExe = $null
             CreateArgs = @()
             Python = $venvPython
+            Version = ($versionOutput | Out-String).Trim()
         }
     }
 
-    if (Get-Command py -ErrorAction SilentlyContinue) {
-        return @{
+    $candidates = @(
+        @{
             CreateExe = "py"
             CreateArgs = @("-3")
-            Python = $venvPython
-        }
-    }
-
-    if (Get-Command python -ErrorAction SilentlyContinue) {
-        return @{
+        },
+        @{
             CreateExe = "python"
             CreateArgs = @()
+        }
+    )
+
+    foreach ($candidate in $candidates) {
+        if (-not (Get-Command $candidate.CreateExe -ErrorAction SilentlyContinue)) {
+            continue
+        }
+
+        $versionOutput = & $candidate.CreateExe @($candidate.CreateArgs + @("--version")) 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            continue
+        }
+
+        $versionText = ($versionOutput | Out-String).Trim()
+        if ($versionText -notmatch "Python\s+(\d+)\.(\d+)") {
+            continue
+        }
+
+        $major = [int]$matches[1]
+        $minor = [int]$matches[2]
+        if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 11)) {
+            throw "Python 3.11+ e obrigatorio. Versao encontrada: $versionText"
+        }
+
+        return @{
+            CreateExe = $candidate.CreateExe
+            CreateArgs = $candidate.CreateArgs
             Python = $venvPython
+            Version = $versionText
         }
     }
 
-    throw "Python nao encontrado. Instale Python 3.11+ antes de continuar."
+    throw @"
+Python 3.11+ nao foi encontrado nesta maquina.
+
+Instale o Python oficial e execute o instalador novamente.
+Sugestoes:
+- Microsoft Store: desabilite o alias do Python ou instale o Python completo
+- Winget: winget install -e --id Python.Python.3.11
+- Site oficial: https://www.python.org/downloads/windows/
+"@
 }
 
 function Set-OrReplaceEnvValue {
@@ -180,19 +218,29 @@ function Write-Utf8NoBom {
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonInfo = Resolve-PythonCommand -ProjectRoot $projectRoot
 
+Write-Host "Python detectado: $($pythonInfo.Version)" -ForegroundColor DarkGray
+
 if (-not (Test-Path -LiteralPath $pythonInfo.Python)) {
     Write-Host "Criando ambiente virtual..." -ForegroundColor Cyan
     & $pythonInfo.CreateExe @($pythonInfo.CreateArgs + @("-m", "venv", "$projectRoot\.venv"))
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $pythonInfo.Python)) {
+        throw "Falha ao criar o ambiente virtual Python em '$projectRoot\.venv'."
+    }
 }
 
 $pythonExe = Join-Path $projectRoot ".venv\Scripts\python.exe"
-$pipExe = Join-Path $projectRoot ".venv\Scripts\pip.exe"
 
 Write-Host "Instalando dependencias..." -ForegroundColor Cyan
-& $pipExe install -r (Join-Path $projectRoot "requirements.txt") | Out-Host
+& $pythonExe -m pip install -r (Join-Path $projectRoot "requirements.txt") | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    throw "Falha ao instalar as dependencias Python."
+}
 
 Write-Host "Instalando navegadores do Playwright..." -ForegroundColor Cyan
 & $pythonExe -m playwright install | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    throw "Falha ao instalar os navegadores do Playwright."
+}
 
 $envPath = Join-Path $projectRoot ".env"
 if (-not (Test-Path -LiteralPath $envPath)) {
