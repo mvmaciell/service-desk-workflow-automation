@@ -105,7 +105,13 @@ Fluxo desse instalador:
 4. abre o login visivel para ele autenticar a conta
 5. testa a leitura real da `Fila`
 6. mantem `BROWSER_HEADLESS=false` para validacao basica
-7. orienta a iniciar o monitor visivel em `Iniciar-Validacao-Augusto.cmd`
+7. inicia automaticamente o monitor visivel ao final da instalacao
+
+Observacao importante para o teste:
+
+- a primeira rodada do monitor cria o baseline
+- chamados que ja estavam na fila antes do monitor comecar nao serao notificados
+- para validar o Teams, o ticket de teste precisa ser criado depois que o monitor estiver rodando
 
 Se quiser forcar background depois da validacao, use:
 

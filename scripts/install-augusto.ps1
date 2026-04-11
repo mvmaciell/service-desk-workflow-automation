@@ -44,6 +44,7 @@ $envPath = Join-Path $projectRoot ".env"
 $installScript = Join-Path $projectRoot "scripts\install-monitor.ps1"
 $registerTaskScript = Join-Path $projectRoot "scripts\register-task.ps1"
 $visibleLauncher = Join-Path $projectRoot "Iniciar-Validacao-Augusto.cmd"
+$visibleRunnerScript = Join-Path $projectRoot "scripts\run-visible-monitor.ps1"
 
 Write-Host "Preparando instalacao direcionada para Augusto Bellucio Ker..." -ForegroundColor Cyan
 
@@ -87,6 +88,12 @@ if ($EnableBackgroundAfterValidation) {
 } else {
     Write-Host "Modo de validacao basica mantido em tela visivel." -ForegroundColor Yellow
     Set-OrReplaceEnvValue -FilePath $envPath -Key "BROWSER_HEADLESS" -Value "false"
+
+    $existingTask = Get-ScheduledTask -TaskName "MegaHub Queue Monitor - Augusto" -ErrorAction SilentlyContinue
+    if ($existingTask) {
+        Disable-ScheduledTask -TaskName "MegaHub Queue Monitor - Augusto" | Out-Null
+        Write-Host "Tarefa em background desabilitada para evitar conflito com a validacao visivel." -ForegroundColor Yellow
+    }
 }
 
 Write-Host ""
@@ -94,6 +101,9 @@ Write-Host "Instalacao do Augusto concluida." -ForegroundColor Green
 if ($EnableBackgroundAfterValidation) {
     Write-Host "A partir deste ponto, o monitor fica configurado para rodar em background a cada 2 minutos."
 } else {
-    Write-Host "Para validar o basico em tela visivel, execute:"
-    Write-Host " - $visibleLauncher"
+    Write-Host "O monitor visivel sera iniciado agora nesta mesma janela." -ForegroundColor Cyan
+    Write-Host "Importante: a primeira leitura cria o baseline e nao notifica tickets que ja existiam na fila." -ForegroundColor Yellow
+    Write-Host "Para validar o Teams, crie um chamado novo depois que o monitor estiver rodando." -ForegroundColor Yellow
+    Write-Host ""
+    & (Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe") -NoProfile -ExecutionPolicy Bypass -File $visibleRunnerScript
 }
