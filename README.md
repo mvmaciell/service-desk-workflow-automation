@@ -91,6 +91,12 @@ Depois da instalacao, o Augusto pode verificar rapidamente se esta tudo funciona
 Verificar-Status-Augusto.cmd
 ```
 
+Para validar o comportamento basico em modo visivel, ele pode executar:
+
+```cmd
+Iniciar-Validacao-Augusto.cmd
+```
+
 Fluxo desse instalador:
 
 1. prepara o ambiente local
@@ -98,8 +104,14 @@ Fluxo desse instalador:
 3. faz teste de notificacao no Teams
 4. abre o login visivel para ele autenticar a conta
 5. testa a leitura real da `Fila`
-6. ativa modo `headless`
-7. registra a tarefa automatica em background
+6. mantem `BROWSER_HEADLESS=false` para validacao basica
+7. orienta a iniciar o monitor visivel em `Iniciar-Validacao-Augusto.cmd`
+
+Se quiser forcar background depois da validacao, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-augusto.ps1 -EnableBackgroundAfterValidation
+```
 
 ### O que o instalador pergunta
 

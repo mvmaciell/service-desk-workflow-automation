@@ -3,7 +3,8 @@ param(
     [switch]$SkipTeamsTest,
     [switch]$SkipLogin,
     [switch]$SkipQueueTest,
-    [switch]$SkipTaskRegistration
+    [switch]$SkipTaskRegistration,
+    [switch]$EnableBackgroundAfterValidation
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,6 +43,7 @@ $pythonExe = Join-Path $projectRoot ".venv\Scripts\python.exe"
 $envPath = Join-Path $projectRoot ".env"
 $installScript = Join-Path $projectRoot "scripts\install-monitor.ps1"
 $registerTaskScript = Join-Path $projectRoot "scripts\register-task.ps1"
+$visibleLauncher = Join-Path $projectRoot "Iniciar-Validacao-Augusto.cmd"
 
 Write-Host "Preparando instalacao direcionada para Augusto Bellucio Ker..." -ForegroundColor Cyan
 
@@ -72,16 +74,26 @@ if (-not $SkipQueueTest) {
     & $pythonExe (Join-Path $projectRoot "main.py") snapshot --source fila_principal
 }
 
-Write-Host "Ativando modo silencioso em background..." -ForegroundColor Cyan
-Set-OrReplaceEnvValue -FilePath $envPath -Key "BROWSER_HEADLESS" -Value "true"
+if ($EnableBackgroundAfterValidation) {
+    Write-Host "Ativando modo silencioso em background..." -ForegroundColor Cyan
+    Set-OrReplaceEnvValue -FilePath $envPath -Key "BROWSER_HEADLESS" -Value "true"
 
-Write-Host "Validando execucao headless..." -ForegroundColor Cyan
-& $pythonExe (Join-Path $projectRoot "main.py") run-once
+    Write-Host "Validando execucao headless..." -ForegroundColor Cyan
+    & $pythonExe (Join-Path $projectRoot "main.py") run-once
 
-if (-not $SkipTaskRegistration) {
-    & $registerTaskScript -TaskName "MegaHub Queue Monitor - Augusto"
+    if (-not $SkipTaskRegistration) {
+        & $registerTaskScript -TaskName "MegaHub Queue Monitor - Augusto"
+    }
+} else {
+    Write-Host "Modo de validacao basica mantido em tela visivel." -ForegroundColor Yellow
+    Set-OrReplaceEnvValue -FilePath $envPath -Key "BROWSER_HEADLESS" -Value "false"
 }
 
 Write-Host ""
 Write-Host "Instalacao do Augusto concluida." -ForegroundColor Green
-Write-Host "A partir deste ponto, o monitor fica configurado para rodar em background a cada 2 minutos."
+if ($EnableBackgroundAfterValidation) {
+    Write-Host "A partir deste ponto, o monitor fica configurado para rodar em background a cada 2 minutos."
+} else {
+    Write-Host "Para validar o basico em tela visivel, execute:"
+    Write-Host " - $visibleLauncher"
+}
