@@ -369,7 +369,8 @@ class Settings:
             ]
             if missing_profiles:
                 raise ConfigurationError(
-                    f"Subscricao '{subscription.id}' referencia perfil(is) inexistente(s): {', '.join(missing_profiles)}"
+                    f"Subscricao '{subscription.id}' referencia perfil(is) "
+                    f"inexistente(s): {', '.join(missing_profiles)}"
                 )
 
     def enabled_sources(self) -> list[SourceConfig]:

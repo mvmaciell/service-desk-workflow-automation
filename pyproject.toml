@@ -15,6 +15,7 @@ dev = [
     "pytest-cov>=5.0",
     "responses>=0.25",
     "ruff>=0.4",
+    "mypy>=1.10",
 ]
 
 [tool.pytest.ini_options]
@@ -29,3 +30,46 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/conftest.py" = ["E402"]
+"src/megahub_monitor/adapters/persistence/sqlite_repository.py" = ["E501"]
+"tests/**/*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/megahub_monitor"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    # Legacy shim modules (re-export only — covered indirectly)
+    "src/megahub_monitor/models.py",
+    "src/megahub_monitor/errors.py",
+    "src/megahub_monitor/browser/*",
+    "src/megahub_monitor/collectors/*",
+    "src/megahub_monitor/notifiers/*",
+    "src/megahub_monitor/repository/*",
+    "src/megahub_monitor/services/load_analyzer.py",
+    "src/megahub_monitor/services/run_once.py",
+    "src/megahub_monitor/services/monitor.py",
+    "src/megahub_monitor/services/router.py",
+    "src/megahub_monitor/services/detector.py",
+    # Abstract port stubs — no executable logic to cover
+    "src/megahub_monitor/ports/approval_gateway.py",
+    "src/megahub_monitor/ports/itsm_reader.py",
+    "src/megahub_monitor/ports/itsm_writer.py",
+    # Runtime-only modules (logging, CLI entrypoint)
+    "src/megahub_monitor/logging_setup.py",
+    "src/megahub_monitor/cli.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]

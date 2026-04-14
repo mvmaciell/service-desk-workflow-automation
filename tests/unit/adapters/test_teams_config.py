@@ -1,12 +1,7 @@
 """Unit tests for Settings._load_teams_config()."""
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from src.megahub_monitor.config import Settings
-
 
 FULL_ALLOCATION_TOML = """\
 [[members]]

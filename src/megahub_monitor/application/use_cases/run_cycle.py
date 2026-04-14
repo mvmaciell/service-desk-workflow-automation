@@ -13,10 +13,9 @@ from logging import Logger
 
 from ...config import Settings, SourceConfig
 from ...domain.enums import AuditAction
-from ...domain.models import EnhancedLoadEntry, LoadEntry, Ticket
+from ...domain.models import Ticket
 from ...ports.state_repository import StateRepository
 from ...ports.team_catalog import TeamCatalog
-from ..services.allocation_engine import AllocationEngine
 from ..services.audit_logger import AuditLogger
 from ..services.load_analyzer import LoadAnalyzer
 from .detect_completion import DetectCompletionUseCase
@@ -176,8 +175,8 @@ class RunCycleUseCase:
         new_tickets: list[Ticket],
         all_tickets: list[Ticket],
     ) -> None:
-        from ...models import utc_now_iso
         from ...errors import NotificationError
+        from ...models import utc_now_iso
 
         legacy_load = self._load_analyzer.calculate_legacy(all_tickets)
         deliveries = self._router.build_deliveries(source, new_tickets, legacy_load)

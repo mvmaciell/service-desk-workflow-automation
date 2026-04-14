@@ -117,7 +117,6 @@ class TestHappyPath:
         assert repo._audit_events[0].action == AuditAction.ALLOCATION_APPROVED
 
     def test_approved_by_default_coordinator(self):
-        from src.megahub_monitor.domain.enums import AuditAction
 
         repo = FakeStateRepository()
         repo._pending_approvals.append(_pending_approval("T-1", "src1"))

@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
-
 from src.megahub_monitor.application.use_cases.detect_new_tickets import DetectNewTicketsUseCase
 from src.megahub_monitor.config import SourceConfig
 from tests.fakes.fake_state_repository import FakeStateRepository

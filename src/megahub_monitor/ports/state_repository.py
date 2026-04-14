@@ -6,13 +6,13 @@ from typing import Any
 
 from ..domain.enums import TicketWorkflowState
 from ..domain.models import (
+    AllocationSuggestion,
     AuditEvent,
     DeliveryRequest,
     LoadEntry,
     NotificationResult,
     Ticket,
     WorkflowItem,
-    AllocationSuggestion,
 )
 
 

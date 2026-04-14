@@ -1,12 +1,9 @@
 """Unit tests for TomlTeamCatalog."""
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from src.megahub_monitor.adapters.catalog.toml_catalog import TomlTeamCatalog
-
 
 TEAMS_TOML = """\
 [[members]]

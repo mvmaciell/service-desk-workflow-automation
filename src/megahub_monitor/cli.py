@@ -8,8 +8,8 @@ from .application.services.allocation_engine import AllocationEngine
 from .application.services.load_analyzer import LoadAnalyzer as AllocationLoadAnalyzer
 from .application.use_cases.detect_completion import DetectCompletionUseCase
 from .application.use_cases.detect_new_tickets import DetectNewTicketsUseCase
-from .application.use_cases.notify_completion import NotifyCompletionUseCase
 from .application.use_cases.notify_assignment import NotifyAssignmentUseCase
+from .application.use_cases.notify_completion import NotifyCompletionUseCase
 from .application.use_cases.process_approval import ApprovalError, ProcessApprovalUseCase
 from .application.use_cases.run_cycle import RunCycleUseCase
 from .application.use_cases.suggest_allocation import SuggestAllocationUseCase
@@ -59,7 +59,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     approve_parser.add_argument("--ticket", required=True, dest="ticket_number", help="Numero do chamado.")
     approve_parser.add_argument("--member", required=True, dest="member_id", help="Id do membro aprovado.")
-    approve_parser.add_argument("--source", dest="source_id", default=None, help="Id da fonte (omitir se unica aprovacao pendente).")
+    approve_parser.add_argument(
+        "--source", dest="source_id", default=None,
+        help="Id da fonte (omitir se unica aprovacao pendente).",
+    )
 
     audit_parser = subparsers.add_parser(
         "audit-trail",

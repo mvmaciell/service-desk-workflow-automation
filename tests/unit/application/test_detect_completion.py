@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
-
 from src.megahub_monitor.application.use_cases.detect_completion import DetectCompletionUseCase
 from src.megahub_monitor.domain.enums import TicketWorkflowState
 from src.megahub_monitor.domain.models import Ticket, WorkflowItem

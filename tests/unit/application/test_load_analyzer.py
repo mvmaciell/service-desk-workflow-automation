@@ -1,8 +1,6 @@
 """Unit tests for LoadAnalyzer (enhanced version with zero-load support)."""
 from __future__ import annotations
 
-import pytest
-
 from src.megahub_monitor.application.services.load_analyzer import LoadAnalyzer
 from src.megahub_monitor.domain.models import TeamMember
 

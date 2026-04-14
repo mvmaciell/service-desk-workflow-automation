@@ -1,8 +1,6 @@
 """Unit tests for AllocationEngine ranking logic."""
 from __future__ import annotations
 
-import pytest
-
 from src.megahub_monitor.application.services.allocation_engine import AllocationEngine
 from src.megahub_monitor.domain.models import TeamMember, Ticket
 

@@ -10,7 +10,6 @@ from .browser_session import BrowserSession
 from .collector_fila import FilaCollector
 from .collector_minha_fila import MinhaFilaCollector
 
-
 _COLLECTOR_MAP = {
     "minha_fila": MinhaFilaCollector,
     "fila": FilaCollector,

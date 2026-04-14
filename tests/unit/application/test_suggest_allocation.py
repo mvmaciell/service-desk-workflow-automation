@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
-
 from src.megahub_monitor.application.services.allocation_engine import AllocationEngine
 from src.megahub_monitor.application.use_cases.suggest_allocation import SuggestAllocationUseCase
 from src.megahub_monitor.domain.enums import TicketWorkflowState
