@@ -6,7 +6,9 @@ from .adapters.catalog.toml_catalog import TomlTeamCatalog
 from .adapters.notification.teams_notifier import TeamsNotifier
 from .application.services.allocation_engine import AllocationEngine
 from .application.services.load_analyzer import LoadAnalyzer as AllocationLoadAnalyzer
+from .application.use_cases.detect_completion import DetectCompletionUseCase
 from .application.use_cases.detect_new_tickets import DetectNewTicketsUseCase
+from .application.use_cases.notify_completion import NotifyCompletionUseCase
 from .application.use_cases.notify_assignment import NotifyAssignmentUseCase
 from .application.use_cases.process_approval import ApprovalError, ProcessApprovalUseCase
 from .application.use_cases.run_cycle import RunCycleUseCase
@@ -93,6 +95,7 @@ def main() -> int:
             engine=AllocationEngine(),
             logger=logger,
         )
+        teams_notifier = TeamsNotifier(settings, logger)
         run_cycle = RunCycleUseCase(
             detect_uc=detect_uc,
             suggest_uc=suggest_uc,
@@ -101,7 +104,11 @@ def main() -> int:
             repository=repository,
             settings=settings,
             logger=logger,
-            notifier=TeamsNotifier(settings, logger),
+            notifier=teams_notifier,
+        )
+        run_cycle.set_completion_use_cases(
+            detect_completion=DetectCompletionUseCase(repository, settings, logger),
+            notify_completion=NotifyCompletionUseCase(repository, logger),
         )
 
     run_once_service = RunOnceService(

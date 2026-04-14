@@ -1,5 +1,5 @@
 param(
-    [string]$TaskName = "MegaHub Queue Monitor - Augusto",
+    [string]$TaskName = "MegaHub Queue Monitor",
     [int]$LogTail = 8
 )
 
