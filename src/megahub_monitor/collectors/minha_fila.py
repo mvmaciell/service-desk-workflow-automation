@@ -1,13 +1,6 @@
+# Shim — canonical implementation moved to adapters/itsm/megahub/collector_minha_fila.py
 from __future__ import annotations
 
-from playwright.sync_api import Page
+from ..adapters.itsm.megahub.collector_minha_fila import MinhaFilaCollector  # noqa: F401
 
-from .base import BaseQueueCollector
-
-
-class MinhaFilaCollector(BaseQueueCollector):
-    page_title = "Minha Fila"
-
-    def apply_pre_filters(self, page: Page) -> None:
-        self._ensure_checkbox(page, "Somente Abertos", self.source.only_open)
-        self._ensure_checkbox(page, "Apenas chamados atribuidos a mim", self.source.only_assigned_to_me)
+__all__ = ["MinhaFilaCollector"]

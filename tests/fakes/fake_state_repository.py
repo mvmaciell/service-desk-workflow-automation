@@ -19,6 +19,7 @@ from src.megahub_monitor.ports.state_repository import StateRepository
 class FakeStateRepository(StateRepository):
     def __init__(self) -> None:
         self._baselines: dict[str, str] = {}
+        self._baseline_versions: dict[str, int] = {}
         self._source_runs: dict[str, dict[str, str | None]] = {}
         self._seen: dict[str, set[str]] = {}
         self._deliveries: dict[tuple[str, str, str, str], bool] = {}
@@ -32,8 +33,12 @@ class FakeStateRepository(StateRepository):
     def is_baseline_initialized(self, source_id: str) -> bool:
         return source_id in self._baselines
 
-    def mark_baseline_initialized(self, source_id: str, timestamp: str) -> None:
+    def mark_baseline_initialized(self, source_id: str, timestamp: str, baseline_version: int = 2) -> None:
         self._baselines[source_id] = timestamp
+        self._baseline_versions[source_id] = baseline_version
+
+    def get_baseline_version(self, source_id: str) -> int:
+        return self._baseline_versions.get(source_id, 0)
 
     def update_source_run(self, source_id: str, run_at: str, success: bool) -> None:
         self._source_runs[source_id] = {
