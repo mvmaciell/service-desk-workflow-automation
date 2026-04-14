@@ -1,3 +1,8 @@
+# AVISO: Este script e usado apenas para debug e execucao manual.
+# Em producao, o Task Scheduler usa scripts\run-silent.vbs via wscript.exe
+# (totalmente silencioso, sem flash de janela de console).
+# Para re-registrar a tarefa: .\scripts\register-task.ps1
+
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot

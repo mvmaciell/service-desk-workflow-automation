@@ -71,6 +71,11 @@ def build_parser() -> argparse.ArgumentParser:
     audit_parser.add_argument("--ticket", dest="ticket_number", default=None, help="Filtrar por numero de chamado.")
     audit_parser.add_argument("--limit", type=int, default=20, help="Maximo de eventos (padrao: 20).")
 
+    subparsers.add_parser(
+        "tray",
+        help="Inicia o icone SDWA na bandeja do sistema (painel de status e controle).",
+    )
+
     return parser
 
 
@@ -185,6 +190,16 @@ def main() -> int:
 
         if args.command == "audit-trail":
             return _handle_audit_trail(args, repository, logger)
+
+        if args.command == "tray":
+            from pathlib import Path  # noqa: PLC0415
+
+            from .tray_app import TrayApp, resolve_db_path  # noqa: PLC0415
+
+            project_root = Path(__file__).resolve().parents[2]
+            db_path = resolve_db_path(project_root)
+            TrayApp(db_path=db_path, project_root=project_root).run()
+            return 0
 
         parser.print_help()
         return 1
