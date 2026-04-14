@@ -8,8 +8,10 @@ from .application.services.allocation_engine import AllocationEngine
 from .application.services.load_analyzer import LoadAnalyzer as AllocationLoadAnalyzer
 from .application.use_cases.detect_completion import DetectCompletionUseCase
 from .application.use_cases.detect_new_tickets import DetectNewTicketsUseCase
+from .application.use_cases.detect_status_return import DetectStatusReturnUseCase
 from .application.use_cases.notify_assignment import NotifyAssignmentUseCase
 from .application.use_cases.notify_completion import NotifyCompletionUseCase
+from .application.use_cases.notify_status_return import NotifyStatusReturnUseCase
 from .application.use_cases.process_approval import ApprovalError, ProcessApprovalUseCase
 from .application.use_cases.run_cycle import RunCycleUseCase
 from .application.use_cases.suggest_allocation import SuggestAllocationUseCase
@@ -117,6 +119,10 @@ def main() -> int:
         run_cycle.set_completion_use_cases(
             detect_completion=DetectCompletionUseCase(repository, settings, logger),
             notify_completion=NotifyCompletionUseCase(repository, logger),
+        )
+        run_cycle.set_return_use_cases(
+            detect_return=DetectStatusReturnUseCase(repository, settings, logger),
+            notify_return=NotifyStatusReturnUseCase(logger),
         )
 
     run_once_service = RunOnceService(

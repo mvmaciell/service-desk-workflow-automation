@@ -20,7 +20,9 @@ from ..services.audit_logger import AuditLogger
 from ..services.load_analyzer import LoadAnalyzer
 from .detect_completion import DetectCompletionUseCase
 from .detect_new_tickets import DetectNewTicketsUseCase
+from .detect_status_return import DetectStatusReturnUseCase
 from .notify_completion import NotifyCompletionUseCase
+from .notify_status_return import NotifyStatusReturnUseCase
 from .suggest_allocation import SuggestAllocationUseCase
 
 
@@ -52,6 +54,8 @@ class RunCycleUseCase:
         self._audit = AuditLogger(repository)
         self._detect_completion_uc: DetectCompletionUseCase | None = None
         self._notify_completion_uc: NotifyCompletionUseCase | None = None
+        self._detect_return_uc: DetectStatusReturnUseCase | None = None
+        self._notify_return_uc: NotifyStatusReturnUseCase | None = None
 
     def set_completion_use_cases(
         self,
@@ -62,6 +66,15 @@ class RunCycleUseCase:
         self._detect_completion_uc = detect_completion
         self._notify_completion_uc = notify_completion
 
+    def set_return_use_cases(
+        self,
+        detect_return: DetectStatusReturnUseCase,
+        notify_return: NotifyStatusReturnUseCase,
+    ) -> None:
+        """Wire status-return detection and notification."""
+        self._detect_return_uc = detect_return
+        self._notify_return_uc = notify_return
+
     def execute_source(
         self,
         source: SourceConfig,
@@ -71,6 +84,35 @@ class RunCycleUseCase:
         """Process a collected ticket list for a source."""
         detection = self._detect_uc.execute(source, tickets, collected_at)
         self._repo.update_source_run(source.id, collected_at, success=True)
+
+        # Completion e return detection rodam A CADA CICLO (independente de novos tickets)
+        if self._detect_completion_uc and self._catalog:
+            coordinator = self._catalog.get_coordinator()
+            completed_pairs = self._detect_completion_uc.execute(
+                source_id=source.id,
+                tickets=tickets,
+                collected_at=collected_at,
+            )
+            if completed_pairs and self._notify_completion_uc and self._notifier:
+                self._notify_completion_uc.execute(
+                    completed_pairs=completed_pairs,
+                    coordinator=coordinator,
+                    catalog=self._catalog,
+                    notifier=self._notifier,
+                )
+
+        if self._detect_return_uc and self._catalog:
+            returned_pairs = self._detect_return_uc.execute(
+                source_id=source.id,
+                tickets=tickets,
+                collected_at=collected_at,
+            )
+            if returned_pairs and self._notify_return_uc and self._notifier:
+                self._notify_return_uc.execute(
+                    returned_pairs=returned_pairs,
+                    catalog=self._catalog,
+                    notifier=self._notifier,
+                )
 
         if not detection.new_tickets:
             return
@@ -110,21 +152,6 @@ class RunCycleUseCase:
             e.member_id: e.open_tickets for e in enhanced if e.member_id
         }
         coordinator = self._catalog.get_coordinator()
-
-        # --- Detect and notify completions ---
-        if self._detect_completion_uc:
-            completed_pairs = self._detect_completion_uc.execute(
-                source_id=source.id,
-                tickets=all_tickets,
-                collected_at=collected_at,
-            )
-            if completed_pairs and self._notify_completion_uc:
-                self._notify_completion_uc.execute(
-                    completed_pairs=completed_pairs,
-                    coordinator=coordinator,
-                    catalog=self._catalog,
-                    notifier=self._notifier,
-                )
 
         # --- Suggest allocation for new tickets ---
         for ticket in new_tickets:

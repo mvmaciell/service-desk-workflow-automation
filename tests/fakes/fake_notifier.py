@@ -79,6 +79,20 @@ class FakeNotifier(Notifier):
             ticket_number=ticket.number,
         )
 
+    def send_return_notice(
+        self,
+        recipient_name: str,
+        webhook_url: str,
+        ticket: Ticket,
+        current_status: str,
+    ) -> NotificationResult:
+        return self._record(
+            "send_return_notice",
+            recipient_name=recipient_name,
+            ticket_number=ticket.number,
+            current_status=current_status,
+        )
+
     def send_test_message(
         self,
         recipient_name: str,

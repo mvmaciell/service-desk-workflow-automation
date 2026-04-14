@@ -78,6 +78,7 @@ class TestAuditAction:
             "completion_notified",
             "notification_failed",
             "approval_timeout",
+            "ticket_returned",
         }
         actual = {a.value for a in AuditAction}
         assert actual == expected

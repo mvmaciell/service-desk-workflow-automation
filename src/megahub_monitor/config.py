@@ -127,6 +127,7 @@ class Settings:
     allocation_enabled: bool = False
     novo_status_labels: list[str] = field(default_factory=lambda: ["NOVO"])
     completion_status_labels: list[str] = field(default_factory=lambda: ["Fechado", "Resolvido"])
+    return_to_developer_labels: list[str] = field(default_factory=lambda: ["Em Processamento"])
     approval_timeout_minutes: int = 60
 
     @classmethod
@@ -178,6 +179,7 @@ class Settings:
             allocation_enabled=alloc["enabled"],
             novo_status_labels=alloc["novo_status_labels"],
             completion_status_labels=alloc["completion_status_labels"],
+            return_to_developer_labels=alloc["return_to_developer_labels"],
             approval_timeout_minutes=alloc["approval_timeout_minutes"],
         )
         settings.ensure_directories()
@@ -297,6 +299,7 @@ class Settings:
             "enabled": False,
             "novo_status_labels": ["NOVO"],
             "completion_status_labels": ["Fechado", "Resolvido"],
+            "return_to_developer_labels": ["Em Processamento"],
             "approval_timeout_minutes": 60,
         }
         if not teams_path.exists():
@@ -314,6 +317,11 @@ class Settings:
             "completion_status_labels": [
                 str(v).strip()
                 for v in alloc.get("completion_status_labels", defaults["completion_status_labels"])
+                if str(v).strip()
+            ],
+            "return_to_developer_labels": [
+                str(v).strip()
+                for v in alloc.get("return_to_developer_labels", defaults["return_to_developer_labels"])
                 if str(v).strip()
             ],
             "approval_timeout_minutes": int(

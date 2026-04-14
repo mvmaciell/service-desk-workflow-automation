@@ -79,5 +79,9 @@ novo_status_labels = ["NOVO", "Novo", "novo"]
 # Completion detection polls tickets in ASSIGNED/IN_PROGRESS state.
 completion_status_labels = ["Fechado", "Resolvido", "Cancelado"]
 
+# Status values that indicate a ticket was returned to the developer
+# (e.g., rejected in homologation). Developer is notified via general webhook.
+return_to_developer_labels = ["Em Processamento", "Em processamento"]
+
 # How long (minutes) to wait for coordinator approval before logging a timeout
 approval_timeout_minutes = 60

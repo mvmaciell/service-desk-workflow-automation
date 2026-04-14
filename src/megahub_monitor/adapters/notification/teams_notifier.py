@@ -79,6 +79,16 @@ class TeamsNotifier(Notifier):
         payload = self._build_completion_card(coordinator_name, ticket, completed_by)
         return self._post(payload, webhook_url)
 
+    def send_return_notice(
+        self,
+        recipient_name: str,
+        webhook_url: str,
+        ticket: Ticket,
+        current_status: str,
+    ) -> NotificationResult:
+        payload = self._build_return_card(recipient_name, ticket, current_status)
+        return self._post(payload, webhook_url)
+
     def send_test_message(
         self,
         recipient_name: str,
@@ -350,6 +360,45 @@ class TeamsNotifier(Notifier):
                 {"type": "FactSet", "facts": load_facts},
             ]
 
+        return self._adaptive_card(body)
+
+    def _build_return_card(
+        self, recipient_name: str, ticket: Ticket, current_status: str
+    ) -> dict:
+        facts = [
+            {"title": "Chamado", "value": ticket.number},
+            {"title": "Status atual", "value": current_status},
+            {"title": "Tipo", "value": ticket.ticket_type or "-"},
+            {"title": "Prioridade", "value": ticket.priority or "-"},
+        ]
+        if ticket.company:
+            facts.append({"title": "Empresa", "value": ticket.company})
+        if ticket.front:
+            facts.append({"title": "Frente", "value": ticket.front})
+
+        body = [
+            {
+                "type": "TextBlock",
+                "text": "\u26a0\ufe0f Chamado Retornou — Acao Necessaria",
+                "weight": "Bolder",
+                "size": "Large",
+                "color": "Warning",
+                "wrap": True,
+            },
+            {
+                "type": "TextBlock",
+                "text": ticket.title or "Sem titulo",
+                "wrap": True,
+                "isSubtle": True,
+            },
+            {"type": "FactSet", "facts": facts},
+            {
+                "type": "TextBlock",
+                "text": "O chamado voltou para processamento. Verifique e retome o atendimento.",
+                "wrap": True,
+                "isSubtle": True,
+            },
+        ]
         return self._adaptive_card(body)
 
     def _build_test_card(self, recipient_name: str, recipient_role: str) -> dict:

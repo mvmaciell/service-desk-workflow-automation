@@ -83,6 +83,7 @@ class AuditAction(Enum):
     COMPLETION_NOTIFIED = "completion_notified"
     NOTIFICATION_FAILED = "notification_failed"
     APPROVAL_TIMEOUT = "approval_timeout"
+    TICKET_RETURNED = "ticket_returned"
 
 
 class NotificationType(Enum):

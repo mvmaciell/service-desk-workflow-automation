@@ -50,6 +50,15 @@ class Notifier(ABC):
     ) -> NotificationResult: ...
 
     @abstractmethod
+    def send_return_notice(
+        self,
+        recipient_name: str,
+        webhook_url: str,
+        ticket: Ticket,
+        current_status: str,
+    ) -> NotificationResult: ...
+
+    @abstractmethod
     def send_test_message(
         self,
         recipient_name: str,
