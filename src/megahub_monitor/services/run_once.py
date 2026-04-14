@@ -6,6 +6,7 @@ import time
 from contextlib import contextmanager
 from logging import Logger
 
+from ..application.use_cases.run_cycle import RunCycleUseCase
 from ..browser.session import BrowserSession
 from ..collectors import build_collector
 from ..config import Settings, SourceConfig
@@ -28,6 +29,7 @@ class RunOnceService:
         router: NotificationRouter,
         notifier: TeamsWorkflowNotifier,
         logger: Logger,
+        run_cycle: RunCycleUseCase | None = None,
     ) -> None:
         self.settings = settings
         self.repository = repository
@@ -36,6 +38,7 @@ class RunOnceService:
         self.router = router
         self.notifier = notifier
         self.logger = logger
+        self.run_cycle = run_cycle
 
     def run(self) -> int:
         enabled_sources = self.settings.enabled_sources()
@@ -85,6 +88,12 @@ class RunOnceService:
         self.repository.save_snapshot(source.id, tickets, collected_at)
         self.repository.save_load_snapshot(source.id, load_entries, collected_at)
 
+        if self.run_cycle is not None:
+            # New path: RunCycleUseCase handles detection + routing + audit
+            self.run_cycle.execute_source(source, tickets, collected_at)
+            return
+
+        # Legacy path (preserved exactly when run_cycle is not wired)
         detection = self.detector.process(source, tickets, collected_at)
         self.repository.update_source_run(source.id, collected_at, success=True)
 
