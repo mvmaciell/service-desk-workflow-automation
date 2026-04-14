@@ -63,9 +63,11 @@ omit = [
     "src/megahub_monitor/ports/approval_gateway.py",
     "src/megahub_monitor/ports/itsm_reader.py",
     "src/megahub_monitor/ports/itsm_writer.py",
-    # Runtime-only modules (logging, CLI entrypoint)
+    # Runtime-only modules (logging, CLI entrypoint, GUI tray)
     "src/megahub_monitor/logging_setup.py",
     "src/megahub_monitor/cli.py",
+    # GUI module — requires display/pystray, not testable in headless CI
+    "src/megahub_monitor/tray_app.py",
 ]
 
 [tool.coverage.report]
