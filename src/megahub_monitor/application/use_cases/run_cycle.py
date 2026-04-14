@@ -91,13 +91,49 @@ class RunCycleUseCase:
         current_load: dict[str, int] = {
             e.member_id: e.open_tickets for e in enhanced if e.member_id
         }
+        coordinator = self._catalog.get_coordinator()
 
         for ticket in new_tickets:
-            self._suggest_uc.execute(
+            suggestions = self._suggest_uc.execute(
                 ticket=ticket,
                 members=members,
                 current_load=current_load,
             )
+
+            if not self._notifier:
+                continue
+
+            if coordinator and coordinator.webhook_url:
+                try:
+                    self._notifier.send_allocation_suggestion(
+                        coordinator_name=coordinator.name,
+                        webhook_url=coordinator.webhook_url,
+                        ticket=ticket,
+                        suggestions=suggestions,
+                        load_board=enhanced,
+                    )
+                    self._logger.info(
+                        "Chamado %s: sugestao de alocacao enviada para %s.",
+                        ticket.number,
+                        coordinator.name,
+                    )
+                except Exception as exc:
+                    self._logger.error(
+                        "Falha ao notificar coordenador para o chamado %s. %s",
+                        ticket.number,
+                        exc,
+                    )
+            elif coordinator:
+                self._logger.warning(
+                    "Coordenador '%s' sem webhook configurado — sugestao nao enviada para chamado %s.",
+                    coordinator.name,
+                    ticket.number,
+                )
+            else:
+                self._logger.warning(
+                    "Sem coordenador no catalogo — sugestao nao enviada para chamado %s.",
+                    ticket.number,
+                )
 
     def _legacy_path(
         self,

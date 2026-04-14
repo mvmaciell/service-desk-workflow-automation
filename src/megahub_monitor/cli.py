@@ -2,9 +2,19 @@ from __future__ import annotations
 
 import argparse
 
+from .adapters.catalog.toml_catalog import TomlTeamCatalog
+from .adapters.notification.teams_notifier import TeamsNotifier
+from .application.services.allocation_engine import AllocationEngine
+from .application.services.load_analyzer import LoadAnalyzer as AllocationLoadAnalyzer
+from .application.use_cases.detect_new_tickets import DetectNewTicketsUseCase
+from .application.use_cases.notify_assignment import NotifyAssignmentUseCase
+from .application.use_cases.process_approval import ApprovalError, ProcessApprovalUseCase
+from .application.use_cases.run_cycle import RunCycleUseCase
+from .application.use_cases.suggest_allocation import SuggestAllocationUseCase
 from .browser import BrowserSession
 from .collectors import build_collector
 from .config import NotificationProfileConfig, Settings, SourceConfig
+from .domain.models import Ticket
 from .errors import ConfigurationError, MonitorError
 from .logging_setup import configure_logging
 from .notifiers import TeamsWorkflowNotifier
@@ -41,6 +51,21 @@ def build_parser() -> argparse.ArgumentParser:
     forget_parser.add_argument("ticket_number", help="Numero do chamado.")
     forget_parser.add_argument("--source", dest="source_id", help="Id da fonte. Se omitido, remove em todas.")
 
+    approve_parser = subparsers.add_parser(
+        "approve",
+        help="Registra aprovacao de alocacao e notifica o desenvolvedor.",
+    )
+    approve_parser.add_argument("--ticket", required=True, dest="ticket_number", help="Numero do chamado.")
+    approve_parser.add_argument("--member", required=True, dest="member_id", help="Id do membro aprovado.")
+    approve_parser.add_argument("--source", dest="source_id", default=None, help="Id da fonte (omitir se unica aprovacao pendente).")
+
+    audit_parser = subparsers.add_parser(
+        "audit-trail",
+        help="Exibe trilha de auditoria do sistema.",
+    )
+    audit_parser.add_argument("--ticket", dest="ticket_number", default=None, help="Filtrar por numero de chamado.")
+    audit_parser.add_argument("--limit", type=int, default=20, help="Maximo de eventos (padrao: 20).")
+
     return parser
 
 
@@ -58,6 +83,27 @@ def main() -> int:
     load_analyzer = LoadAnalyzer()
     router = NotificationRouter(settings, repository, logger)
     notifier = TeamsWorkflowNotifier(settings, logger)
+
+    run_cycle = None
+    if settings.allocation_enabled:
+        team_catalog = TomlTeamCatalog(settings.teams_path)
+        detect_uc = DetectNewTicketsUseCase(repository, logger)
+        suggest_uc = SuggestAllocationUseCase(
+            repository=repository,
+            engine=AllocationEngine(),
+            logger=logger,
+        )
+        run_cycle = RunCycleUseCase(
+            detect_uc=detect_uc,
+            suggest_uc=suggest_uc,
+            team_catalog=team_catalog,
+            load_analyzer=AllocationLoadAnalyzer(),
+            repository=repository,
+            settings=settings,
+            logger=logger,
+            notifier=TeamsNotifier(settings, logger),
+        )
+
     run_once_service = RunOnceService(
         settings=settings,
         repository=repository,
@@ -66,6 +112,7 @@ def main() -> int:
         router=router,
         notifier=notifier,
         logger=logger,
+        run_cycle=run_cycle,
     )
     monitor_service = MonitorService(settings, run_once_service, logger)
 
@@ -123,11 +170,88 @@ def main() -> int:
                 logger.warning("Chamado %s nao existia na base local.", args.ticket_number)
             return 0
 
+        if args.command == "approve":
+            return _handle_approve(args, settings, repository, logger)
+
+        if args.command == "audit-trail":
+            return _handle_audit_trail(args, repository, logger)
+
         parser.print_help()
         return 1
     except (ConfigurationError, MonitorError) as exc:
         logger.error(str(exc))
         return 1
+
+
+def _handle_approve(args, settings: Settings, repository, logger) -> int:
+    team_catalog = TomlTeamCatalog(settings.teams_path)
+    process_uc = ProcessApprovalUseCase(
+        repository=repository,
+        team_catalog=team_catalog,
+        logger=logger,
+    )
+
+    source_id = args.source_id
+    if not source_id:
+        pending = repository.get_pending_approvals()
+        matches = [p for p in pending if p["ticket_number"] == args.ticket_number]
+        if not matches:
+            logger.error(
+                "Nenhuma aprovacao pendente para o chamado %s. Use 'python main.py run-once' primeiro.",
+                args.ticket_number,
+            )
+            return 1
+        if len(matches) > 1:
+            sources = [p["source_id"] for p in matches]
+            logger.error(
+                "Multiplas aprovacoes pendentes para o chamado %s. Especifique --source entre: %s",
+                args.ticket_number,
+                ", ".join(sources),
+            )
+            return 1
+        source_id = matches[0]["source_id"]
+
+    try:
+        member = process_uc.execute(
+            ticket_number=args.ticket_number,
+            source_id=source_id,
+            chosen_member_id=args.member_id,
+        )
+    except ApprovalError as exc:
+        logger.error(str(exc))
+        return 1
+
+    teams_notifier = TeamsNotifier(settings, logger)
+    notify_uc = NotifyAssignmentUseCase(repository=repository, logger=logger)
+    ticket_stub = Ticket(
+        number=args.ticket_number,
+        source_id=source_id,
+        source_name=source_id,
+        source_kind="unknown",
+    )
+    notify_uc.execute(ticket=ticket_stub, member=member, notifier=teams_notifier)
+    return 0
+
+
+def _handle_audit_trail(args, repository, logger) -> int:
+    events = repository.get_audit_trail(
+        ticket_number=args.ticket_number,
+        limit=args.limit,
+    )
+    if not events:
+        logger.info("Nenhum evento de auditoria encontrado.")
+        return 0
+    for event in events:
+        action_label = event.action.value if hasattr(event.action, "value") else str(event.action)
+        logger.info(
+            "[%s] %s | Chamado: %s | Ator: %s | %s",
+            event.timestamp[:19],
+            action_label,
+            event.ticket_number or "-",
+            event.actor,
+            event.details,
+        )
+    return 0
 
 
 def _resolve_source(settings: Settings, source_id: str | None) -> SourceConfig:
