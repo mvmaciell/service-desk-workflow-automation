@@ -1,13 +1,6 @@
+# Shim — canonical implementation moved to adapters/itsm/megahub/collector_fila.py
 from __future__ import annotations
 
-from playwright.sync_api import Page
+from ..adapters.itsm.megahub.collector_fila import FilaCollector  # noqa: F401
 
-from .base import BaseQueueCollector
-
-
-class FilaCollector(BaseQueueCollector):
-    page_title = "Fila"
-
-    def apply_pre_filters(self, page: Page) -> None:
-        self._ensure_checkbox(page, "Incluir Fechados", self.source.include_closed)
-        self._ensure_checkbox(page, "Incluir Atribuidos", self.source.include_assigned)
+__all__ = ["FilaCollector"]
