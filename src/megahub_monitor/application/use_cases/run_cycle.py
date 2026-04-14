@@ -19,7 +19,9 @@ from ...ports.team_catalog import TeamCatalog
 from ..services.allocation_engine import AllocationEngine
 from ..services.audit_logger import AuditLogger
 from ..services.load_analyzer import LoadAnalyzer
+from .detect_completion import DetectCompletionUseCase
 from .detect_new_tickets import DetectNewTicketsUseCase
+from .notify_completion import NotifyCompletionUseCase
 from .suggest_allocation import SuggestAllocationUseCase
 
 
@@ -49,6 +51,17 @@ class RunCycleUseCase:
         self._router = router
         self._notifier = notifier
         self._audit = AuditLogger(repository)
+        self._detect_completion_uc: DetectCompletionUseCase | None = None
+        self._notify_completion_uc: NotifyCompletionUseCase | None = None
+
+    def set_completion_use_cases(
+        self,
+        detect_completion: DetectCompletionUseCase,
+        notify_completion: NotifyCompletionUseCase,
+    ) -> None:
+        """Optionally wire completion detection and notification (Phase 7)."""
+        self._detect_completion_uc = detect_completion
+        self._notify_completion_uc = notify_completion
 
     def execute_source(
         self,
@@ -71,7 +84,7 @@ class RunCycleUseCase:
         )
 
         if self._settings.allocation_enabled and self._catalog and self._suggest_uc:
-            self._workflow_path(detection.new_tickets, tickets)
+            self._workflow_path(source, detection.new_tickets, tickets, collected_at)
         elif self._router and self._notifier:
             self._legacy_path(source, detection.new_tickets, tickets)
         else:
@@ -85,7 +98,13 @@ class RunCycleUseCase:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _workflow_path(self, new_tickets: list[Ticket], all_tickets: list[Ticket]) -> None:
+    def _workflow_path(
+        self,
+        source: SourceConfig,
+        new_tickets: list[Ticket],
+        all_tickets: list[Ticket],
+        collected_at: str,
+    ) -> None:
         members = self._catalog.list_active_members()
         enhanced = self._load_analyzer.calculate(all_tickets, members=members)
         current_load: dict[str, int] = {
@@ -93,6 +112,22 @@ class RunCycleUseCase:
         }
         coordinator = self._catalog.get_coordinator()
 
+        # --- Detect and notify completions ---
+        if self._detect_completion_uc:
+            completed_pairs = self._detect_completion_uc.execute(
+                source_id=source.id,
+                tickets=all_tickets,
+                collected_at=collected_at,
+            )
+            if completed_pairs and self._notify_completion_uc:
+                self._notify_completion_uc.execute(
+                    completed_pairs=completed_pairs,
+                    coordinator=coordinator,
+                    catalog=self._catalog,
+                    notifier=self._notifier,
+                )
+
+        # --- Suggest allocation for new tickets ---
         for ticket in new_tickets:
             suggestions = self._suggest_uc.execute(
                 ticket=ticket,

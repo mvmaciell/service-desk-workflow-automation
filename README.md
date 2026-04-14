@@ -1,283 +1,166 @@
-# MegaHub Queue Monitor
+# SDWA — Service Desk Workflow Automation
 
-Motor local de monitoramento para o MegaHub com suporte a:
+Monitor local de chamados do MegaHub com automação de alocação de desenvolvedores e notificação via Microsoft Teams.
 
-- multiplas fontes (`Minha Fila` e `Fila`)
-- perfis de notificacao configuraveis por instalacao
-- subscricoes com filtros por fonte, tipo, prioridade, empresa e consultor
-- notificacao no Teams via Power Automate
-- baseline por fonte
-- execucao `run-once` para Agendador do Windows
+## O que faz
 
-## Escopo atual
+- Coleta chamados do MegaHub via browser headless (Playwright)
+- Detecta novos chamados (incluindo os que já estavam com status NOVO na primeira execução)
+- Sugere os melhores desenvolvedores com base em habilidades, carga atual e histórico
+- Notifica o coordenador no Teams com o ranking de sugestões e o quadro de carga
+- Permite que o coordenador aprove a alocação via linha de comando
+- Notifica o desenvolvedor atribuído no Teams
+- Detecta conclusão de chamados e notifica o coordenador
+- Mantém trilha de auditoria completa de todas as ações
 
-- `Minha Fila` operacional e validada
-- `Fila` preparada no codigo, mas pendente de validacao real quando houver acesso
-- primeira pagina apenas
-- carga atual por consultor calculada a partir da snapshot da fonte
-- configuracao local por maquina via `config/local`
+## Ciclo de workflow
 
-## Stack
+```
+Novo chamado detectado
+       ↓
+Sugestão de alocação gerada (ranking: habilidade > carga > histórico > alfabético)
+       ↓
+Coordenador recebe card no Teams com sugestões e quadro de carga
+       ↓
+Coordenador aprova: python main.py approve --ticket X --member Y
+       ↓
+Desenvolvedor recebe card de atribuição no Teams
+       ↓
+Chamado concluído → coordenador recebe notificação de conclusão
+```
+
+## Pré-requisitos
 
 - Python 3.11+
-- Playwright
-- SQLite
-- requests
-- python-dotenv
+- Acesso ao MegaHub com sessão de navegador configurada
+- Webhooks no Microsoft Teams via Power Automate (opcional para modo legado)
 
-## Estrutura
-
-- `main.py`: entrada da CLI
-- `config/local/`: configuracao local gerada pelo instalador
-- `config/contexts.toml`: fallback versionado para desenvolvimento
-- `config/routing.toml`: fallback legado para desenvolvimento
-- `scripts/install-monitor.ps1`: instalador interativo por maquina
-- `scripts/install-augusto.ps1`: instalador pre-configurado para o Augusto
-- `scripts/register-task.ps1`: registro da tarefa no Agendador do Windows
-- `scripts/run-background.ps1`: wrapper silencioso para execucao em background
-- `src/megahub_monitor/browser/`: sessoes persistentes do navegador
-- `src/megahub_monitor/collectors/`: coleta da grade por fonte
-- `src/megahub_monitor/notifiers/`: envio de cards para o Teams
-- `src/megahub_monitor/repository/`: persistencia local
-- `src/megahub_monitor/services/`: detecao, roteamento, carga e execucao
-- `data/`: banco, logs, lock e perfis de navegador
-
-## Modelo de configuracao
-
-Cada instalacao da ferramenta passa a ter:
-
-- `contexts`: sessoes autenticadas e fontes monitoradas naquela maquina
-- `profiles`: pessoas ou canais que recebem notificacoes
-- `subscriptions`: regras do que cada perfil recebe
-
-Isso permite que cada usuario ou gestor tenha sua propria configuracao local sem hardcode de nomes no codigo.
-
-## Instalacao recomendada
-
-Use o instalador PowerShell:
+## Instalação
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install-monitor.ps1
+# Instalar dependências Python
+pip install -e .
+
+# Instalar navegadores do Playwright
+playwright install chromium
+
+# Copiar configurações de exemplo
+cp config/example/contexts.toml config/local/contexts.toml
+cp config/example/profiles.toml config/local/profiles.toml
 ```
 
-O instalador:
+## Configuração
 
-- cria `.venv` se necessario
-- instala dependencias
-- instala os navegadores do Playwright
-- cria `.env` se nao existir
-- gera `config/local/contexts.toml`
-- gera `config/local/profiles.toml`
-- opcionalmente registra a tarefa automatica no Windows
-- opcionalmente abre a tela de login no final
+### Arquivos de configuração
 
-### Instalador pre-configurado do Augusto
+| Arquivo | Descrição |
+|---|---|
+| `.env` | Variáveis de ambiente (caminhos, flags, timeouts) |
+| `config/local/contexts.toml` | Sessões de browser por usuário/sistema |
+| `config/local/profiles.toml` | Fontes de dados e subscrições de notificação |
+| `config/teams.toml` | Catálogo de equipe e configurações de alocação |
 
-Para a maquina do Augusto, existe um instalador pronto:
+### Exemplo `config/teams.toml`
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install-augusto.ps1
+```toml
+[[members]]
+id = "dev-marcus"
+name = "Marcus Vinicius"
+role = "developer"
+skills = ["abap", "fiori"]
+active = true
+webhook_url = ""        # URL Teams do desenvolvedor (opcional)
+max_concurrent_tickets = 5
+
+[[members]]
+id = "coord-joao"
+name = "Joao Silva"
+role = "coordinator"
+skills = []
+active = true
+webhook_url = "https://prod.outlook.com/webhooks/..."  # obrigatório para receber sugestões
+
+[allocation]
+enabled = true
+max_suggestions = 3
+novo_status_labels = ["NOVO"]
+completion_status_labels = ["Fechado", "Resolvido", "Cancelado"]
 ```
 
-Ou, de forma mais simples, basta executar:
+### Variável `.env` para ativar alocação
 
-```cmd
-Instalar-Augusto.cmd
+```ini
+ALLOCATION_ENABLED=true
 ```
 
-Depois da instalacao, o Augusto pode verificar rapidamente se esta tudo funcionando com:
+## Primeiro uso
 
-```cmd
-Verificar-Status-Augusto.cmd
+```bash
+# 1. Fazer login no MegaHub (salva sessão do browser)
+python main.py login --source minha_fila
+
+# 2. Verificar coleta
+python main.py snapshot --source minha_fila
+
+# 3. Executar ciclo completo
+python main.py run-once
 ```
-
-Para validar o comportamento basico em modo visivel, ele pode executar:
-
-```cmd
-Iniciar-Validacao-Augusto.cmd
-```
-
-Fluxo desse instalador:
-
-1. prepara o ambiente local
-2. configura o perfil do Augusto e ativa a `Fila`
-3. faz teste de notificacao no Teams
-4. abre o login visivel para ele autenticar a conta
-5. testa a leitura real da `Fila`
-6. mantem `BROWSER_HEADLESS=false` para validacao basica
-7. inicia automaticamente o monitor visivel ao final da instalacao
-
-Observacao importante para o teste:
-
-- a primeira rodada do monitor cria o baseline
-- chamados que ja estavam na fila antes do monitor comecar nao serao notificados
-- para validar o Teams, o ticket de teste precisa ser criado depois que o monitor estiver rodando
-
-Se quiser forcar background depois da validacao, use:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install-augusto.ps1 -EnableBackgroundAfterValidation
-```
-
-### O que o instalador pergunta
-
-- nome do perfil principal
-- papel do perfil principal (`consultor`, `coordenador`, `gestor`)
-- webhook do Teams do perfil principal
-- se deve adicionar um segundo perfil
-- se deve ativar `Minha Fila`
-- se deve ativar `Fila`
-- nome do consultor para a fonte `Minha Fila`
-- se deve registrar a tarefa automatica
-- se deve abrir o login no final
-
-### Limite atual do instalador
-
-O instalador gera uma configuracao simples com **uma sessao principal**.
-
-Se uma mesma maquina precisar monitorar `Minha Fila` e `Fila` com **contas diferentes**, o motor suporta isso, mas a configuracao avancada ainda precisa ser ajustada manualmente no `config/local/contexts.toml`.
-
-## Configuracao local
-
-### `.env`
-
-- `MONITOR_INTERVAL_SECONDS`: intervalo do loop continuo
-- `LOCK_FILE_PATH`: lock do `run-once`
-- `BROWSER_HEADLESS`: `true` ou `false`
-- `PLAYWRIGHT_CHANNEL`: `msedge` por padrao
-- `PLAYWRIGHT_TIMEOUT_MS`
-- `DATABASE_PATH`
-- `LOG_FILE_PATH`
-- `CONTEXTS_CONFIG_PATH`
-- `PROFILES_CONFIG_PATH`
-- `TEAMS_REQUEST_TIMEOUT_SECONDS`
-
-### `config/local/contexts.toml`
-
-Define:
-
-- sessoes persistentes do navegador
-- fontes habilitadas naquela instalacao
-
-### `config/local/profiles.toml`
-
-Define:
-
-- `profiles`: quem recebe notificacao
-- `subscriptions`: o que cada perfil recebe
-
-Filtros suportados por subscricao:
-
-- `ticket_types`
-- `priorities`
-- `companies`
-- `consultants`
 
 ## Comandos
 
-### Login manual
-
-```powershell
-python main.py login
-python main.py login --source minha_fila_principal
-python main.py login --context main-session
-```
-
-### Teste de notificacao
-
-```powershell
-python main.py notify-test
-python main.py notify-test --profile marcus-vinicius-maciel-vieira
-```
-
-### Snapshot de uma fonte
-
-```powershell
-python main.py snapshot --source minha_fila_principal
-```
-
-### Execucao unica
-
-```powershell
-python main.py run-once
-```
-
-Comportamento:
-
-- percorre todas as fontes habilitadas
-- cria baseline inicial por fonte sem notificar
-- detecta novos chamados nas execucoes seguintes
-- roteia alertas conforme `profiles.toml`
-
-### Loop continuo
-
-```powershell
-python main.py monitor
-```
-
-### Forcar reprocessamento em demo
-
-```powershell
-python main.py forget-ticket 41487 --source minha_fila_principal
-python main.py run-once
-```
+| Comando | Descrição |
+|---|---|
+| `python main.py run-once` | Executa um ciclo de detecção e notificação (usar no agendador) |
+| `python main.py monitor` | Loop contínuo de monitoramento |
+| `python main.py login [--source S]` | Abre browser para login manual |
+| `python main.py snapshot [--source S]` | Captura e imprime resumo dos chamados |
+| `python main.py approve --ticket X --member Y` | Registra aprovação de alocação e notifica desenvolvedor |
+| `python main.py audit-trail [--ticket X] [--limit N]` | Exibe trilha de auditoria |
+| `python main.py notify-test [--profile P]` | Envia card de teste para perfis configurados |
+| `python main.py forget-ticket N [--source S]` | Remove chamado da base para reprocessamento |
 
 ## Agendador do Windows
 
-Forma recomendada para background:
-
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\register-task.ps1
+# Registrar tarefa agendada (executa run-once a cada 2 minutos)
+powershell -File scripts\register-task.ps1 -IntervalMinutes 2
+
+# Verificar status
+powershell -File scripts\check-status.ps1
 ```
 
-A tarefa chama `scripts/run-background.ps1`, que executa `run-once` sem abrir janela de console. Com `BROWSER_HEADLESS=true`, o navegador tambem nao fica visivel.
+## Arquitetura
 
-Parametros opcionais:
+O projeto segue arquitetura hexagonal (ports/adapters):
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\register-task.ps1 -TaskName "MegaHub Queue Monitor" -IntervalMinutes 2
+```
+domain/          → modelos e regras de negócio (sem dependências externas)
+ports/           → interfaces abstratas (ITSMReader, Notifier, StateRepository, TeamCatalog)
+application/     → casos de uso e serviços de aplicação
+adapters/        → implementações concretas (MegaHub, SQLite, Teams, TOML)
+infrastructure/  → configuração, logging, clock
 ```
 
-Se preferir criar manualmente, o comando alvo e:
+Os módulos legados (`browser/`, `collectors/`, `services/`, `repository/`) são shims de re-export
+que apontam para os novos caminhos em `adapters/`.
 
-```powershell
-C:\Users\mvmac\OneDrive\Documentos\New project\.venv\Scripts\python.exe C:\Users\mvmac\OneDrive\Documentos\New project\main.py run-once
-```
+## Banco de dados
 
-O lockfile evita execucao concorrente se uma rodada ainda estiver em andamento.
+SQLite local em `data/monitor.db`. Todas as migrações são incrementais e idempotentes:
 
-## Persistencia local
+- `source_states` — estado de baseline por fonte
+- `source_seen_tickets` — deduplicação de chamados
+- `source_snapshots` — histórico de capturas
+- `load_snapshots` — histórico de carga
+- `notification_deliveries` — registro de entregas (modo legado)
+- `workflow_items` — estado do workflow por chamado
+- `audit_events` — trilha de auditoria imutável
+- `pending_approvals` — aprovações pendentes de coordenação
 
-Banco SQLite em `data/megahub-monitor.db`:
+## Limitações v1
 
-- `source_states`: baseline e ultimo sucesso por fonte
-- `source_seen_tickets`: chamados vistos por fonte
-- `source_snapshots`: snapshots completos por fonte
-- `load_snapshots`: carga atual por consultor
-- `notification_deliveries`: entregas por subscricao/perfil
-
-## Validacao realizada
-
-Validado localmente nesta fase:
-
-- `notify-test` com Adaptive Card
-- `snapshot` da fonte ativa da `Minha Fila`
-- `run-once` com baseline por fonte
-- alerta segmentado do consultor com ticket forcado
-- registro e execucao automatica via Agendador do Windows
-
-## Limitacoes
-
-- primeira pagina apenas
-- depende do HTML/DOM atual do MegaHub
-- a fonte `Fila` ainda nao foi validada porque o acesso real nao esta liberado
-- o instalador ainda cobre o caso simples de uma sessao principal por maquina
-- ainda nao existe dashboard nem distribuicao automatica
-
-## Proximos passos
-
-- validar a fonte `Fila` na maquina do gestor
-- separar webhooks por perfil/canal quando necessario
-- evoluir o instalador para mais de uma sessao autenticada por maquina
-- adicionar suporte a paginacao completa
-- preparar empacotamento distribuivel quando o formato operacional estabilizar
+- Coleta apenas a primeira página de cada fila
+- Aprovação somente via CLI (card Teams é informativo; Action.Submit é evolução futura)
+- Matching de carga por nome do consultor (case-insensitive) — pode divergir se nomes diferirem entre fontes
+- Sem atribuição automática no ITSM (apenas notificação)
+- Sem suporte a múltiplas páginas de fila
