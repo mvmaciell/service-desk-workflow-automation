@@ -122,6 +122,12 @@ class Settings:
     sources: dict[str, SourceConfig]
     profiles: dict[str, NotificationProfileConfig]
     subscriptions: list[SubscriptionConfig]
+    # Team catalog & allocation (all optional — fallback when teams.toml absent)
+    teams_path: Path = field(default_factory=lambda: Path("config/teams.toml"))
+    allocation_enabled: bool = False
+    novo_status_labels: list[str] = field(default_factory=lambda: ["NOVO"])
+    completion_status_labels: list[str] = field(default_factory=lambda: ["Fechado", "Resolvido"])
+    approval_timeout_minutes: int = 60
 
     @classmethod
     def load(cls) -> "Settings":
@@ -143,6 +149,13 @@ class Settings:
         )
         contexts, sources = cls._load_contexts(project_root, contexts_path)
         profiles, subscriptions = cls._load_profiles(profiles_path)
+        teams_path = _resolve_existing_path(
+            project_root,
+            os.getenv("TEAMS_CONFIG_PATH"),
+            "config/local/teams.toml",
+            "config/teams.toml",
+        )
+        alloc = cls._load_teams_config(teams_path)
 
         channel = os.getenv("PLAYWRIGHT_CHANNEL", "msedge").strip()
         settings = cls(
@@ -161,6 +174,11 @@ class Settings:
             sources=sources,
             profiles=profiles,
             subscriptions=subscriptions,
+            teams_path=teams_path,
+            allocation_enabled=alloc["enabled"],
+            novo_status_labels=alloc["novo_status_labels"],
+            completion_status_labels=alloc["completion_status_labels"],
+            approval_timeout_minutes=alloc["approval_timeout_minutes"],
         )
         settings.ensure_directories()
         settings.validate()
@@ -271,6 +289,37 @@ class Settings:
             subscriptions.append(subscription)
 
         return profiles, subscriptions
+
+    @staticmethod
+    def _load_teams_config(teams_path: Path) -> dict:
+        """Load allocation settings from teams.toml. Returns safe defaults if file absent."""
+        defaults: dict = {
+            "enabled": False,
+            "novo_status_labels": ["NOVO"],
+            "completion_status_labels": ["Fechado", "Resolvido"],
+            "approval_timeout_minutes": 60,
+        }
+        if not teams_path.exists():
+            return defaults
+        with teams_path.open("rb") as fh:
+            document = tomllib.load(fh)
+        alloc = document.get("allocation", {})
+        return {
+            "enabled": bool(alloc.get("enabled", defaults["enabled"])),
+            "novo_status_labels": [
+                str(v).strip()
+                for v in alloc.get("novo_status_labels", defaults["novo_status_labels"])
+                if str(v).strip()
+            ],
+            "completion_status_labels": [
+                str(v).strip()
+                for v in alloc.get("completion_status_labels", defaults["completion_status_labels"])
+                if str(v).strip()
+            ],
+            "approval_timeout_minutes": int(
+                alloc.get("approval_timeout_minutes", defaults["approval_timeout_minutes"])
+            ),
+        }
 
     def ensure_directories(self) -> None:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,83 @@
+# =============================================================================
+# SDWA — Service Desk Workflow Automation
+# Team catalog configuration
+#
+# This file defines:
+#   - Team members (developers, coordinators, managers)
+#   - Allocation rules for routing tickets
+#
+# Place a customized copy at config/local/teams.toml to override this default.
+# If the file is absent, the allocation workflow is disabled and the system
+# falls back to the legacy notification-only mode.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Members
+# Each [[members]] block defines one person.
+#
+# Fields:
+#   id        — unique slug, used in CLI commands (e.g. approve --member <id>)
+#   name      — display name shown in Teams notifications
+#   role      — "developer" | "coordinator" | "manager"
+#   skills    — list of skill tags used for allocation matching (lowercase)
+#   active    — set false to exclude from allocation and load board
+#   webhook_url — Teams webhook for individual notifications (optional)
+#   max_concurrent_tickets — soft cap for load-based ranking (default: 5)
+# ---------------------------------------------------------------------------
+
+[[members]]
+id = "dev-1"
+name = "Dev 1 (substitua pelo nome real)"
+role = "developer"
+skills = ["abap", "fiori"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-2"
+name = "Dev 2 (substitua pelo nome real)"
+role = "developer"
+skills = ["abap", "basis"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "coordenador-1"
+name = "Coordenador (substitua pelo nome real)"
+role = "coordinator"
+skills = []
+active = true
+webhook_url = ""
+max_concurrent_tickets = 0
+
+# ---------------------------------------------------------------------------
+# Allocation rules
+# Controls how ticket suggestions are generated.
+# ---------------------------------------------------------------------------
+[allocation]
+# Enable the full allocation workflow (suggest + approve + assign + complete).
+# Set false to use legacy notification-only mode.
+enabled = false
+
+# Order of criteria for ranking developers (first = highest priority):
+#   skill_match     — member has a skill matching ticket.front (case-insensitive)
+#   current_load    — fewer open tickets ranks higher
+#   historical_load — fewer historically assigned tickets ranks higher
+#   alphabetical    — alphabetical tiebreak (deterministic)
+strategy_order = ["skill_match", "current_load", "historical_load", "alphabetical"]
+
+# Maximum number of suggestions shown to the coordinator
+max_suggestions = 3
+
+# Status values (from MegaHub) that indicate a ticket is NEW.
+# Tickets with these statuses on first run will be included in the workflow.
+novo_status_labels = ["NOVO", "Novo", "novo"]
+
+# Status values that indicate a ticket has been completed.
+# Completion detection polls tickets in ASSIGNED/IN_PROGRESS state.
+completion_status_labels = ["Fechado", "Resolvido", "Cancelado"]
+
+# How long (minutes) to wait for coordinator approval before logging a timeout
+approval_timeout_minutes = 60
