@@ -31,6 +31,13 @@ COLOR_YELLOW = "#ffdc00"
 COLOR_RED = "#ff4136"
 REFRESH_INTERVAL = 30  # segundos
 
+# Estado compartilhado entre thread do monitor e UI
+_monitor_state: dict = {
+    "running": False,
+    "next_in": 0,        # segundos até próxima execução
+    "interval": 120,     # intervalo configurado
+}
+
 
 # ---------------------------------------------------------------------------
 # TrayDbReader — acesso read-only ao SQLite sem instanciar Settings
@@ -219,37 +226,52 @@ class StatusWindow:
 
         pad = {"padx": 12, "pady": 4}
 
-        ttk.Label(parent, text="Tarefa Agendada:", font=("", 10, "bold")).grid(
+        ttk.Label(parent, text="Monitor:", font=("", 10, "bold")).grid(
             row=0, column=0, sticky="w", **pad
         )
         lbl_task = ttk.Label(parent, text="—")
         lbl_task.grid(row=0, column=1, sticky="w", **pad)
         self._status_widgets["task"] = lbl_task
 
-        ttk.Label(parent, text="Última execução:", font=("", 10, "bold")).grid(
+        ttk.Label(parent, text="Próxima execução:", font=("", 10, "bold")).grid(
             row=1, column=0, sticky="w", **pad
         )
+        lbl_next = ttk.Label(parent, text="—")
+        lbl_next.grid(row=1, column=1, sticky="w", **pad)
+        self._status_widgets["next"] = lbl_next
+
+        ttk.Label(parent, text="Última execução:", font=("", 10, "bold")).grid(
+            row=2, column=0, sticky="w", **pad
+        )
         lbl_last = ttk.Label(parent, text="—")
-        lbl_last.grid(row=1, column=1, sticky="w", **pad)
+        lbl_last.grid(row=2, column=1, sticky="w", **pad)
         self._status_widgets["last"] = lbl_last
 
         ttk.Separator(parent, orient="horizontal").grid(
-            row=2, column=0, columnspan=3, sticky="ew", pady=6, padx=8
+            row=3, column=0, columnspan=3, sticky="ew", pady=6, padx=8
         )
 
         ttk.Label(parent, text="Fontes:", font=("", 10, "bold")).grid(
-            row=3, column=0, sticky="nw", **pad
+            row=4, column=0, sticky="nw", **pad
         )
         frame_sources = tk.Frame(parent)
-        frame_sources.grid(row=3, column=1, sticky="w", **pad)
+        frame_sources.grid(row=4, column=1, sticky="w", **pad)
         self._status_widgets["sources_frame"] = frame_sources
 
-        btn = ttk.Button(
-            parent,
+        frame_btns = ttk.Frame(parent)
+        frame_btns.grid(row=6, column=0, columnspan=2, pady=16, padx=12, sticky="w")
+
+        ttk.Button(
+            frame_btns,
             text="Executar Agora",
             command=self._run_once,
-        )
-        btn.grid(row=5, column=0, columnspan=2, pady=16, padx=12, sticky="w")
+        ).pack(side="left", padx=(0, 8))
+
+        ttk.Button(
+            frame_btns,
+            text="Exportar Dados da Fila →",
+            command=self._export_data,
+        ).pack(side="left")
 
     def _build_tickets_tab(self, parent) -> None:
         from tkinter import ttk
@@ -391,14 +413,25 @@ class StatusWindow:
         import tkinter as tk
 
         # --- Status tab ---
-        task_exists, task_state = _detect_task()
-        if task_exists:
-            label = f"Ativa ({task_state})"
-            color = "green" if task_state.lower() in ("ready", "running") else "orange"
+        if _monitor_state["running"]:
+            label = "Ativo (embutido no ícone)"
+            color = "green"
         else:
-            label = "Não registrada"
+            label = "Inativo"
             color = "red"
         self._status_widgets["task"].config(text=label, foreground=color)
+
+        nxt = _monitor_state.get("next_in", 0)
+        if _monitor_state["running"]:
+            if nxt <= 0:
+                next_label = "executando..."
+            elif nxt < 60:
+                next_label = f"em {nxt}s"
+            else:
+                next_label = f"em {nxt // 60}min {nxt % 60}s"
+        else:
+            next_label = "—"
+        self._status_widgets["next"].config(text=next_label)
 
         last = self._db.get_last_success_at()
         self._status_widgets["last"].config(
@@ -475,6 +508,52 @@ class StatusWindow:
             creationflags=subprocess.CREATE_NO_WINDOW,
         )
 
+    def _export_data(self) -> None:
+        from tkinter import messagebox  # noqa: PLC0415
+
+        pythonw = self._root / ".venv" / "Scripts" / "pythonw.exe"
+        python = self._root / ".venv" / "Scripts" / "python.exe"
+        exe = pythonw if pythonw.exists() else python
+        main_py = self._root / "main.py"
+
+        win = self._win
+        if win:
+            win.config(cursor="wait")
+            win.update()
+
+        try:
+            result = subprocess.run(
+                [str(exe), str(main_py), "export-data"],
+                cwd=str(self._root),
+                capture_output=True,
+                text=True,
+                timeout=120,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            if result.returncode == 0:
+                messagebox.showinfo(
+                    "Exportação concluída",
+                    "Arquivo CSV gerado na pasta data/exports.\n"
+                    "A pasta foi aberta automaticamente.",
+                    parent=win,
+                )
+            else:
+                messagebox.showerror(
+                    "Erro na exportação",
+                    "Não foi possível exportar os dados.\n"
+                    "Verifique se o login foi feito e se há fontes habilitadas.",
+                    parent=win,
+                )
+        except subprocess.TimeoutExpired:
+            messagebox.showerror(
+                "Timeout",
+                "A exportação demorou demais. Verifique a conexão com o MegaHub.",
+                parent=win,
+            )
+        finally:
+            if win:
+                win.config(cursor="")
+
     def _open_config_window(self) -> None:
         from .config_window import ConfigWindow  # noqa: PLC0415
         ConfigWindow(self._root).show()
@@ -531,6 +610,8 @@ class TrayApp:
             pystray.MenuItem("Executar Agora", self._run_once),
             pystray.MenuItem("Abrir Log", self._open_log),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Iniciar com Windows", self._toggle_startup),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("Sair", self._quit),
         )
 
@@ -546,6 +627,7 @@ class TrayApp:
         # pystray em thread própria; thread principal fica para Tkinter
         self._icon.run_detached()
         self._start_icon_refresh()
+        self._start_monitor_loop()
 
         # Loop principal — mantém processo vivo até Sair
         while self._running:
@@ -601,6 +683,101 @@ class TrayApp:
             cwd=str(self._root),
             creationflags=subprocess.CREATE_NO_WINDOW,
         )
+
+    def _start_monitor_loop(self) -> None:
+        """Inicia loop de monitoramento em background — sem Task Scheduler, sem janelas."""
+        def _loop() -> None:
+            _monitor_state["running"] = True
+            # Aguarda 5 s no startup para não competir com a inicialização
+            countdown = 5
+            while countdown > 0 and self._running:
+                _monitor_state["next_in"] = countdown
+                time.sleep(1)
+                countdown -= 1
+
+            while self._running:
+                _monitor_state["next_in"] = 0
+                self._run_once_silent()
+
+                interval = self._read_interval()
+                _monitor_state["interval"] = interval
+                remaining = interval
+                while remaining > 0 and self._running:
+                    _monitor_state["next_in"] = remaining
+                    time.sleep(1)
+                    remaining -= 1
+
+            _monitor_state["running"] = False
+
+        t = threading.Thread(target=_loop, daemon=True)
+        t.start()
+
+    def _run_once_silent(self) -> None:
+        """Dispara run-once sem janela visível."""
+        pythonw = self._root / ".venv" / "Scripts" / "pythonw.exe"
+        python = self._root / ".venv" / "Scripts" / "python.exe"
+        exe = pythonw if pythonw.exists() else python
+        main_py = self._root / "main.py"
+        try:
+            subprocess.Popen(
+                [str(exe), str(main_py), "run-once"],
+                cwd=str(self._root),
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError:
+            pass
+
+    def _read_interval(self) -> int:
+        env_vals = dotenv_values(str(self._root / ".env"))
+        try:
+            return max(30, int(env_vals.get("MONITOR_INTERVAL_SECONDS", "120")))
+        except (ValueError, TypeError):
+            return 120
+
+    def _toggle_startup(self, icon=None, item=None) -> None:
+        """Adiciona ou remove o atalho de inicialização automática com Windows."""
+        import winreg  # noqa: PLC0415
+
+        vbs_src = self._root / "Iniciar SDWA.vbs"
+        key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        key_name = "SDWA Monitor"
+        value = f'"{vbs_src}"'
+
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_ALL_ACCESS) as key:
+                try:
+                    winreg.QueryValueEx(key, key_name)
+                    # Já existe → remove
+                    winreg.DeleteValue(key, key_name)
+                    self._notify_startup(False)
+                except FileNotFoundError:
+                    # Não existe → adiciona
+                    winreg.SetValueEx(key, key_name, 0, winreg.REG_SZ, value)
+                    self._notify_startup(True)
+        except OSError:
+            pass
+
+    def _notify_startup(self, added: bool) -> None:
+        import tkinter as tk  # noqa: PLC0415
+        from tkinter import messagebox  # noqa: PLC0415
+
+        root = tk.Tk()
+        root.withdraw()
+        if added:
+            messagebox.showinfo(
+                "SDWA",
+                "Inicialização automática ativada.\nO SDWA vai iniciar junto com o Windows.",
+                parent=root,
+            )
+        else:
+            messagebox.showinfo(
+                "SDWA",
+                "Inicialização automática desativada.",
+                parent=root,
+            )
+        root.destroy()
 
     def _open_log(self, icon=None, item=None) -> None:
         log = self._root / "data" / "logs" / "monitor.log"
