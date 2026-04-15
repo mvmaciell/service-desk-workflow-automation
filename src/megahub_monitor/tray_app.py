@@ -258,12 +258,20 @@ class StatusWindow:
         frame_sources.grid(row=4, column=1, sticky="w", **pad)
         self._status_widgets["sources_frame"] = frame_sources
 
-        btn = ttk.Button(
-            parent,
+        frame_btns = ttk.Frame(parent)
+        frame_btns.grid(row=6, column=0, columnspan=2, pady=16, padx=12, sticky="w")
+
+        ttk.Button(
+            frame_btns,
             text="Executar Agora",
             command=self._run_once,
-        )
-        btn.grid(row=6, column=0, columnspan=2, pady=16, padx=12, sticky="w")
+        ).pack(side="left", padx=(0, 8))
+
+        ttk.Button(
+            frame_btns,
+            text="Exportar Dados da Fila →",
+            command=self._export_data,
+        ).pack(side="left")
 
     def _build_tickets_tab(self, parent) -> None:
         from tkinter import ttk
@@ -499,6 +507,52 @@ class StatusWindow:
             cwd=str(project_root),
             creationflags=subprocess.CREATE_NO_WINDOW,
         )
+
+    def _export_data(self) -> None:
+        from tkinter import messagebox  # noqa: PLC0415
+
+        pythonw = self._root / ".venv" / "Scripts" / "pythonw.exe"
+        python = self._root / ".venv" / "Scripts" / "python.exe"
+        exe = pythonw if pythonw.exists() else python
+        main_py = self._root / "main.py"
+
+        win = self._win
+        if win:
+            win.config(cursor="wait")
+            win.update()
+
+        try:
+            result = subprocess.run(
+                [str(exe), str(main_py), "export-data"],
+                cwd=str(self._root),
+                capture_output=True,
+                text=True,
+                timeout=120,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            if result.returncode == 0:
+                messagebox.showinfo(
+                    "Exportação concluída",
+                    "Arquivo CSV gerado na pasta data/exports.\n"
+                    "A pasta foi aberta automaticamente.",
+                    parent=win,
+                )
+            else:
+                messagebox.showerror(
+                    "Erro na exportação",
+                    "Não foi possível exportar os dados.\n"
+                    "Verifique se o login foi feito e se há fontes habilitadas.",
+                    parent=win,
+                )
+        except subprocess.TimeoutExpired:
+            messagebox.showerror(
+                "Timeout",
+                "A exportação demorou demais. Verifique a conexão com o MegaHub.",
+                parent=win,
+            )
+        finally:
+            if win:
+                win.config(cursor="")
 
     def _open_config_window(self) -> None:
         from .config_window import ConfigWindow  # noqa: PLC0415

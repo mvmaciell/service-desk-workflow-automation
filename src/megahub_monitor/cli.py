@@ -78,6 +78,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inicia o icone SDWA na bandeja do sistema (painel de status e controle).",
     )
 
+    export_parser = subparsers.add_parser(
+        "export-data",
+        help="Coleta todos os chamados das filas e exporta para CSV (para analise e calibragem).",
+    )
+    export_parser.add_argument("--source", dest="source_id", default=None, help="Id da fonte (omitir para todas).")
+    export_parser.add_argument("--no-open", action="store_true", help="Nao abre a pasta apos exportar.")
+
     return parser
 
 
@@ -207,6 +214,9 @@ def main() -> int:
             TrayApp(db_path=db_path, project_root=project_root).run()
             return 0
 
+        if args.command == "export-data":
+            return _handle_export_data(args, settings, run_once_service, logger)
+
         parser.print_help()
         return 1
     except (ConfigurationError, MonitorError) as exc:
@@ -306,6 +316,77 @@ def _resolve_login_source(settings: Settings, source_id: str | None, context_id:
         raise ConfigurationError(f"Nenhuma fonte referencia o contexto '{context_id}'.")
 
     return _resolve_source(settings, None)
+
+
+def _handle_export_data(args, settings: Settings, run_once_service, logger) -> int:
+    import csv  # noqa: PLC0415
+    import os  # noqa: PLC0415
+    from datetime import datetime, timezone  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    if args.source_id:
+        sources = [settings.get_source(args.source_id)]
+    else:
+        sources = settings.enabled_sources()
+
+    if not sources:
+        logger.error("Nenhuma fonte habilitada para exportar.")
+        return 1
+
+    all_tickets = []
+    for source in sources:
+        try:
+            tickets = run_once_service.run_snapshot(source)
+            all_tickets.extend(tickets)
+            logger.info("Fonte '%s': %s chamado(s) coletado(s).", source.id, len(tickets))
+        except Exception:
+            logger.exception("Falha ao coletar fonte '%s'.", source.id)
+
+    if not all_tickets:
+        logger.warning("Nenhum chamado coletado. Verifique o login e as fontes habilitadas.")
+        return 1
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    export_dir = Path(settings.database_path).parent / "exports"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = export_dir / f"fila-export-{ts}.csv"
+
+    fields = [
+        "number", "source_id", "source_name", "title",
+        "ticket_type", "priority", "ticket_status", "activity_status",
+        "consultant", "company", "front", "activity",
+        "customer_ticket_number", "created_label",
+        "start_date", "end_date", "due_date", "time_to_expire",
+        "available_estimate", "collected_at",
+    ]
+    headers = [
+        "Chamado", "Fonte ID", "Fonte Nome", "Título",
+        "Tipo", "Prioridade", "Status", "Status Atividade",
+        "Consultor", "Empresa", "Front", "Atividade",
+        "Chamado Cliente", "Criado em",
+        "Data Início", "Data Fim", "Vencimento", "Tempo p/ Vencer",
+        "Estimativa", "Coletado em",
+    ]
+
+    with open(csv_path, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f, delimiter=";")
+        writer.writerow(headers)
+        for t in all_tickets:
+            writer.writerow([getattr(t, field, "") for field in fields])
+
+    logger.info(
+        "Exportacao concluida: %s chamado(s) → %s",
+        len(all_tickets),
+        csv_path,
+    )
+
+    if not getattr(args, "no_open", False):
+        try:
+            os.startfile(str(export_dir))
+        except OSError:
+            pass
+
+    return 0
 
 
 def _resolve_profiles(settings: Settings, profile_id: str | None) -> list[NotificationProfileConfig]:
