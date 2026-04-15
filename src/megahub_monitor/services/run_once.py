@@ -94,7 +94,7 @@ class RunOnceService:
             return
 
         # Legacy path (preserved exactly when run_cycle is not wired)
-        detection = self.detector.process(source, tickets, collected_at)
+        detection = self.detector.execute(source, tickets, collected_at)
         self.repository.update_source_run(source.id, collected_at, success=True)
 
         if detection.is_baseline:
