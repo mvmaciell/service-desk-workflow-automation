@@ -51,10 +51,13 @@ class BrowserSession:
         )
         with self.open_page(force_headed=True) as page:
             page.goto(login_url, wait_until="domcontentloaded")
-            input(
-                "Conclua o login manual no navegador aberto e pressione ENTER aqui "
-                "quando a tela correta estiver visivel."
-            )
+            try:
+                input(
+                    "Conclua o login manual no navegador aberto e pressione ENTER aqui "
+                    "quando a tela correta estiver visivel."
+                )
+            except (KeyboardInterrupt, EOFError):
+                raise AuthenticationRequiredError("Login interrompido pelo usuario.")
 
             if not self.is_authenticated(page, validation_text):
                 raise AuthenticationRequiredError(

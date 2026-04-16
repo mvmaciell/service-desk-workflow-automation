@@ -60,7 +60,7 @@ class AllocationEngine:
 
             if has_skill:
                 reason = f"skill match: {ticket.front}"
-            elif load == min(current_load.get(d.id, 0) for d in devs):
+            elif load == min((current_load.get(d.id, 0) for d in devs), default=float("inf")):
                 reason = "menor carga atual"
             else:
                 reason = "ordem alfabetica"
