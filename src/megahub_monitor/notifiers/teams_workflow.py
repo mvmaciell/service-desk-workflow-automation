@@ -5,8 +5,8 @@ from logging import Logger
 import requests
 
 from ..config import Settings
-from ..errors import ConfigurationError, NotificationError
-from ..models import DeliveryRequest, NotificationResult, utc_now_iso
+from ..domain.errors import ConfigurationError, NotificationError
+from ..domain.models import DeliveryRequest, NotificationResult, utc_now_iso
 
 
 class TeamsWorkflowNotifier:

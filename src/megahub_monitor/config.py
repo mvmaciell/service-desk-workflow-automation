@@ -8,7 +8,7 @@ from typing import TypedDict
 
 from dotenv import load_dotenv
 
-from .errors import ConfigurationError
+from .domain.errors import ConfigurationError
 
 
 class TeamsConfig(TypedDict):

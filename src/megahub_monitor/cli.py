@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from .adapters.catalog.toml_catalog import TomlTeamCatalog
+from .adapters.itsm.megahub.browser_session import BrowserSession
 from .adapters.notification.teams_notifier import TeamsNotifier
 from .application.services.allocation_engine import AllocationEngine
 from .application.services.load_analyzer import LoadAnalyzer as AllocationLoadAnalyzer
@@ -15,11 +16,10 @@ from .application.use_cases.notify_status_return import NotifyStatusReturnUseCas
 from .application.use_cases.process_approval import ApprovalError, ProcessApprovalUseCase
 from .application.use_cases.run_cycle import RunCycleUseCase
 from .application.use_cases.suggest_allocation import SuggestAllocationUseCase
-from .browser import BrowserSession
 from .collectors import build_collector
 from .config import NotificationProfileConfig, Settings, SourceConfig
+from .domain.errors import ConfigurationError, MonitorError
 from .domain.models import Ticket
-from .errors import ConfigurationError, MonitorError
 from .logging_setup import configure_logging
 from .notifiers import TeamsWorkflowNotifier
 from .repository import SQLiteRepository

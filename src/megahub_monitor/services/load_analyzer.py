@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from ..models import LoadEntry, Ticket
+from ..domain.models import LoadEntry, Ticket
 
 
 class LoadAnalyzer:

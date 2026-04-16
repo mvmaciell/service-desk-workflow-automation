@@ -5,7 +5,9 @@ import re
 import unicodedata
 from logging import Logger
 
-from playwright.sync_api import Error as PlaywrightError, Page, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from ....config import Settings, SourceConfig
 from ....domain.errors import AuthenticationRequiredError, CollectionError

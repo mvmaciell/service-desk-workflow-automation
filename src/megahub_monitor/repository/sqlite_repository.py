@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from logging import Logger
 from pathlib import Path
 
-from ..models import DeliveryRequest, LoadEntry, NotificationResult, Ticket
+from ..domain.models import DeliveryRequest, LoadEntry, NotificationResult, Ticket
 
 
 class SQLiteRepository:

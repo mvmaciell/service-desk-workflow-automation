@@ -4,7 +4,7 @@ import unicodedata
 from logging import Logger
 
 from ..config import Settings, SourceConfig, SubscriptionConfig
-from ..models import DeliveryRequest, LoadEntry, Ticket
+from ..domain.models import DeliveryRequest, LoadEntry, Ticket
 from ..repository.sqlite_repository import SQLiteRepository
 
 

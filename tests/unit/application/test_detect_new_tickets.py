@@ -186,15 +186,3 @@ class TestLegacyV1Behavior:
         )
         result = uc.execute(_make_source(), [make_ticket(number="99")], "2026-04-14T01:00:00+00:00")
         assert result.is_baseline is False
-
-
-class TestShimBackwardCompat:
-    """The old services/detector.py shim must still export TicketDetector."""
-
-    def test_ticket_detector_alias_importable(self):
-        from src.megahub_monitor.services.detector import TicketDetector
-        assert TicketDetector is DetectNewTicketsUseCase
-
-    def test_detect_new_tickets_use_case_importable(self):
-        from src.megahub_monitor.services.detector import DetectNewTicketsUseCase as UC
-        assert UC is DetectNewTicketsUseCase
