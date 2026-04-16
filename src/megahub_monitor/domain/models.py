@@ -132,6 +132,10 @@ class TeamMember:
     webhook_url: str = ""
     max_concurrent_tickets: int = 5
 
+    def __post_init__(self) -> None:
+        if self.max_concurrent_tickets < 0:
+            raise ValueError(f"max_concurrent_tickets deve ser >= 0, recebido: {self.max_concurrent_tickets}")
+
 
 @dataclass(slots=True)
 class WorkflowItem:

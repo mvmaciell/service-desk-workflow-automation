@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterable
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,13 @@ from ...domain.models import (
 )
 from ...ports.state_repository import StateRepository
 from .migrations import run_migrations
+
+
+def _safe_json(raw: str | None, default: Any) -> Any:
+    try:
+        return json.loads(raw or json.dumps(default))
+    except json.JSONDecodeError:
+        return default
 
 
 class SQLiteStateRepository(StateRepository):
@@ -251,7 +259,10 @@ class SQLiteStateRepository(StateRepository):
         return [self._row_to_workflow_item(row) for row in rows]
 
     def _row_to_workflow_item(self, row: sqlite3.Row) -> WorkflowItem:
-        suggested = json.loads(row["suggested_member_ids_json"] or "[]")
+        try:
+            suggested = json.loads(row["suggested_member_ids_json"] or "[]")
+        except json.JSONDecodeError:
+            suggested = []
         return WorkflowItem(
             ticket_number=row["ticket_number"],
             source_id=row["source_id"],
@@ -306,7 +317,7 @@ class SQLiteStateRepository(StateRepository):
             "ticket_number": row["ticket_number"],
             "source_id": row["source_id"],
             "actor": row["actor"],
-            "details": json.loads(row["details_json"] or "{}"),
+            "details": _safe_json(row["details_json"], {}),
         }) for row in rows]
 
     # ------------------------------------------------------------------
@@ -390,7 +401,15 @@ class SQLiteStateRepository(StateRepository):
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self):
         conn = sqlite3.connect(self.database_path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            yield conn
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()

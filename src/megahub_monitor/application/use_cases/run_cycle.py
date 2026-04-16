@@ -10,10 +10,12 @@ This use case handles: detection, routing, workflow state, audit.
 from __future__ import annotations
 
 from logging import Logger
+from typing import Any
 
 from ...config import Settings, SourceConfig
 from ...domain.enums import AuditAction
-from ...domain.models import Ticket
+from ...domain.errors import NotificationError
+from ...domain.models import Ticket, utc_now_iso
 from ...ports.state_repository import StateRepository
 from ...ports.team_catalog import TeamCatalog
 from ..services.audit_logger import AuditLogger
@@ -39,8 +41,8 @@ class RunCycleUseCase:
         settings: Settings,
         logger: Logger,
         # Legacy notification path (used when allocation_enabled=False)
-        router=None,
-        notifier=None,
+        router: Any = None,
+        notifier: Any = None,
     ) -> None:
         self._detect_uc = detect_uc
         self._suggest_uc = suggest_uc
@@ -146,6 +148,8 @@ class RunCycleUseCase:
         all_tickets: list[Ticket],
         collected_at: str,
     ) -> None:
+        assert self._catalog is not None
+        assert self._suggest_uc is not None
         members = self._catalog.list_active_members()
         enhanced = self._load_analyzer.calculate(all_tickets, members=members)
         current_load: dict[str, int] = {
@@ -162,6 +166,10 @@ class RunCycleUseCase:
             )
 
             if not self._notifier:
+                self._logger.warning(
+                    "Notifier nao configurado — sugestoes para chamado %s descartadas.",
+                    ticket.number,
+                )
                 continue
 
             if coordinator and coordinator.webhook_url:
@@ -202,9 +210,6 @@ class RunCycleUseCase:
         new_tickets: list[Ticket],
         all_tickets: list[Ticket],
     ) -> None:
-        from ...errors import NotificationError
-        from ...models import utc_now_iso
-
         legacy_load = self._load_analyzer.calculate_legacy(all_tickets)
         deliveries = self._router.build_deliveries(source, new_tickets, legacy_load)
 

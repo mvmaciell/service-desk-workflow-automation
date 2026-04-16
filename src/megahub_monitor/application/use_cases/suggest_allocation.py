@@ -1,6 +1,7 @@
 """SuggestAllocationUseCase — ranks developers and records the pending approval."""
 from __future__ import annotations
 
+import uuid
 from logging import Logger
 
 from ...domain.enums import AuditAction, TicketWorkflowState
@@ -62,12 +63,17 @@ class SuggestAllocationUseCase:
 
         if item.current_state == TicketWorkflowState.DETECTED:
             item.transition_to(TicketWorkflowState.ALLOCATION_SUGGESTED, now)
+        else:
+            self._logger.debug(
+                "Chamado %s em estado %s, transicao para ALLOCATION_SUGGESTED ignorada.",
+                ticket.number,
+                item.current_state.value,
+            )
 
         item.suggested_member_ids = [s.member_id for s in suggestions]
         self._repo.upsert_workflow_item(item)
 
         # Persist pending approval so the coordinator can act via CLI
-        import uuid
         request_id = str(uuid.uuid4())
         self._repo.save_pending_approval(
             ticket.number, ticket.source_id, request_id, suggestions

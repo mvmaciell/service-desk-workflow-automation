@@ -40,13 +40,12 @@ class TestMigrations:
     def test_schema_version_table_created(self, repo):
         from src.megahub_monitor.adapters.persistence.migrations import MIGRATIONS
         versions = {m.version for m in MIGRATIONS}
-        conn = repo._connect()
-        rows = conn.execute("SELECT version FROM schema_version").fetchall()
+        with repo._connect() as conn:
+            rows = conn.execute("SELECT version FROM schema_version").fetchall()
         applied = {row[0] for row in rows}
         assert versions == applied
 
     def test_all_tables_exist(self, repo):
-        conn = repo._connect()
         expected = {
             "source_states",
             "source_seen_tickets",
@@ -58,7 +57,8 @@ class TestMigrations:
             "pending_approvals",
             "schema_version",
         }
-        rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        with repo._connect() as conn:
+            rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         actual = {row[0] for row in rows}
         assert expected.issubset(actual)
 

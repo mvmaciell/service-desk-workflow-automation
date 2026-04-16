@@ -34,29 +34,9 @@ class NotifyStatusReturnUseCase:
 
         for item, ticket in returned_pairs:
             current_status = ticket.ticket_status.strip()
-            recipient: TeamMember | None = None
-
-            # Prefere o desenvolvedor atribuído
-            if item.approved_member_id:
-                recipient = catalog.get_member(item.approved_member_id)
-
-            # Fallback: coordinator
-            if recipient is None or not recipient.webhook_url:
-                if coordinator and coordinator.webhook_url:
-                    recipient = coordinator
-                elif recipient and not recipient.webhook_url:
-                    self._logger.warning(
-                        "Chamado %s: desenvolvedor '%s' sem webhook — retorno nao notificado.",
-                        item.ticket_number,
-                        item.approved_member_id,
-                    )
-                    continue
-                else:
-                    self._logger.warning(
-                        "Chamado %s: sem destinatario com webhook configurado — retorno nao notificado.",
-                        item.ticket_number,
-                    )
-                    continue
+            recipient = self._resolve_recipient(item, catalog, coordinator)
+            if recipient is None:
+                continue
 
             try:
                 result = notifier.send_return_notice(
@@ -86,3 +66,33 @@ class NotifyStatusReturnUseCase:
                     item.ticket_number,
                     result.status_code,
                 )
+
+    def _resolve_recipient(
+        self,
+        item: WorkflowItem,
+        catalog: TeamCatalog,
+        coordinator: TeamMember | None,
+    ) -> TeamMember | None:
+        """Resolve o destinatário da notificação: dev atribuído → coordinator → None."""
+        recipient: TeamMember | None = None
+        if item.approved_member_id:
+            recipient = catalog.get_member(item.approved_member_id)
+
+        if recipient and recipient.webhook_url:
+            return recipient
+
+        if coordinator and coordinator.webhook_url:
+            return coordinator
+
+        if recipient and not recipient.webhook_url:
+            self._logger.warning(
+                "Chamado %s: desenvolvedor '%s' sem webhook — retorno nao notificado.",
+                item.ticket_number,
+                item.approved_member_id,
+            )
+        else:
+            self._logger.warning(
+                "Chamado %s: sem destinatario com webhook configurado — retorno nao notificado.",
+                item.ticket_number,
+            )
+        return None

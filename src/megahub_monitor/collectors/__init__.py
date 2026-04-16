@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from ..adapters.itsm.megahub.collector_fila import FilaCollector
+from ..adapters.itsm.megahub.collector_minha_fila import MinhaFilaCollector
 from ..config import Settings, SourceConfig
-from .fila import FilaCollector
-from .minha_fila import MinhaFilaCollector
 
 
 def build_collector(settings: Settings, source: SourceConfig, logger):

@@ -4,8 +4,8 @@ import unicodedata
 from logging import Logger
 
 from ..config import Settings, SourceConfig, SubscriptionConfig
-from ..models import DeliveryRequest, LoadEntry, Ticket
-from ..repository.sqlite_repository import SQLiteRepository
+from ..domain.models import DeliveryRequest, LoadEntry, Ticket
+from ..repository import SQLiteRepository
 
 
 def _normalize(value: str) -> str:

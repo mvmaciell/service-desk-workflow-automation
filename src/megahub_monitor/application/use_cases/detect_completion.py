@@ -65,7 +65,10 @@ class DetectCompletionUseCase:
         for item in trackable:
             ticket = tickets_by_number.get(item.ticket_number)
             if ticket is None:
-                # Ticket no longer visible in queue — cannot confirm completion
+                self._logger.warning(
+                    "Chamado %s nao visivel na fila — impossivel confirmar conclusao.",
+                    item.ticket_number,
+                )
                 continue
 
             if ticket.ticket_status.strip().lower() not in completion_labels:

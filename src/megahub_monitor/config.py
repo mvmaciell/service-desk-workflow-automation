@@ -4,10 +4,19 @@ import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TypedDict
 
 from dotenv import load_dotenv
 
-from .errors import ConfigurationError
+from .domain.errors import ConfigurationError
+
+
+class TeamsConfig(TypedDict):
+    enabled: bool
+    novo_status_labels: list[str]
+    completion_status_labels: list[str]
+    return_to_developer_labels: list[str]
+    approval_timeout_minutes: int
 
 
 def _to_bool(value: str | None, default: bool) -> bool:
@@ -19,7 +28,10 @@ def _to_bool(value: str | None, default: bool) -> bool:
 def _to_int(value: str | None, default: int) -> int:
     if value is None or not value.strip():
         return default
-    return int(value)
+    try:
+        return int(value)
+    except ValueError:
+        return default
 
 
 def _resolve_path(project_root: Path, raw_value: str | None, default_relative: str) -> Path:
@@ -261,6 +273,14 @@ class Settings:
             if webhook_env:
                 webhook_url = os.getenv(webhook_env, "").strip() or webhook_url
 
+            if webhook_url and not webhook_url.startswith(("http://", "https://")):
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Perfil '%s': webhook_url invalido ignorado (deve iniciar com http:// ou https://).",
+                    profile_id,
+                )
+                webhook_url = ""
+
             profiles[profile_id] = NotificationProfileConfig(
                 id=profile_id,
                 name=str(raw.get("name", profile_id)).strip(),
@@ -293,9 +313,9 @@ class Settings:
         return profiles, subscriptions
 
     @staticmethod
-    def _load_teams_config(teams_path: Path) -> dict:
+    def _load_teams_config(teams_path: Path) -> TeamsConfig:
         """Load allocation settings from teams.toml. Returns safe defaults if file absent."""
-        defaults: dict = {
+        defaults: TeamsConfig = {
             "enabled": False,
             "novo_status_labels": ["NOVO"],
             "completion_status_labels": ["Fechado", "Resolvido"],

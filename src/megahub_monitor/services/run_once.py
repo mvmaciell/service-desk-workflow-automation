@@ -6,15 +6,15 @@ import time
 from contextlib import contextmanager
 from logging import Logger
 
+from ..adapters.itsm.megahub.browser_session import BrowserSession
+from ..application.use_cases.detect_new_tickets import DetectNewTicketsUseCase as TicketDetector
 from ..application.use_cases.run_cycle import RunCycleUseCase
-from ..browser.session import BrowserSession
 from ..collectors import build_collector
 from ..config import Settings, SourceConfig
-from ..errors import AuthenticationRequiredError, LockUnavailableError, NotificationError
-from ..models import Ticket, utc_now_iso
+from ..domain.errors import AuthenticationRequiredError, LockUnavailableError, NotificationError
+from ..domain.models import Ticket, utc_now_iso
 from ..notifiers.teams_workflow import TeamsWorkflowNotifier
-from ..repository.sqlite_repository import SQLiteRepository
-from .detector import TicketDetector
+from ..repository import SQLiteRepository
 from .load_analyzer import LoadAnalyzer
 from .router import NotificationRouter
 
@@ -94,7 +94,7 @@ class RunOnceService:
             return
 
         # Legacy path (preserved exactly when run_cycle is not wired)
-        detection = self.detector.process(source, tickets, collected_at)
+        detection = self.detector.execute(source, tickets, collected_at)
         self.repository.update_source_run(source.id, collected_at, success=True)
 
         if detection.is_baseline:
