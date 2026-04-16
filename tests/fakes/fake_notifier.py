@@ -54,6 +54,19 @@ class FakeNotifier(Notifier):
             ticket_number=ticket.number,
         )
 
+    def send_batch_allocation_suggestion(
+        self,
+        coordinator_name: str,
+        webhook_url: str,
+        ticket_suggestions: list[tuple[Ticket, list[AllocationSuggestion]]],
+        load_board: list[EnhancedLoadEntry],
+    ) -> NotificationResult:
+        return self._record(
+            "send_batch_allocation_suggestion",
+            coordinator_name=coordinator_name,
+            ticket_count=len(ticket_suggestions),
+        )
+
     def send_assignment_notice(
         self,
         developer_name: str,
@@ -91,6 +104,18 @@ class FakeNotifier(Notifier):
             recipient_name=recipient_name,
             ticket_number=ticket.number,
             current_status=current_status,
+        )
+
+    def send_approval_reminder(
+        self,
+        coordinator_name: str,
+        webhook_url: str,
+        timed_out_approvals: list[dict],
+    ) -> NotificationResult:
+        return self._record(
+            "send_approval_reminder",
+            coordinator_name=coordinator_name,
+            count=len(timed_out_approvals),
         )
 
     def send_test_message(

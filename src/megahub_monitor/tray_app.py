@@ -175,7 +175,7 @@ class StatusWindow:
             self._win.focus_force()
             return
 
-        win = tk.Tk()
+        win = tk.Toplevel()
         win.title("SDWA — Painel de Controle")
         win.geometry("750x480")
         win.resizable(True, True)
@@ -210,7 +210,6 @@ class StatusWindow:
 
         self._refresh()
         self._schedule_refresh()
-        win.mainloop()
 
     # ------------------------------------------------------------------
     def _build_status_tab(self, parent) -> None:
@@ -525,6 +524,12 @@ class TrayApp:
         self._running = True
 
     def run(self) -> None:
+        import tkinter as tk
+
+        # Tkinter DEVE rodar na thread principal — criar root oculto aqui
+        self._tk_root = tk.Tk()
+        self._tk_root.withdraw()
+
         menu = pystray.Menu(
             pystray.MenuItem("Ver Status", self._open_status, default=True),
             pystray.MenuItem("Configuração Completa", self._open_config),
@@ -543,13 +548,13 @@ class TrayApp:
             menu=menu,
         )
 
-        # pystray em thread própria; thread principal fica para Tkinter
-        self._icon.run_detached()
+        # pystray em thread separada; thread principal fica para Tkinter
+        icon_thread = threading.Thread(target=self._icon.run, daemon=True)
+        icon_thread.start()
         self._start_icon_refresh()
 
-        # Loop principal — mantém processo vivo até Sair
-        while self._running:
-            time.sleep(1)
+        # mainloop do Tkinter na thread principal (mantém processo vivo)
+        self._tk_root.mainloop()
 
     def _tooltip_text(self) -> str:
         last = self._db.get_last_success_at()
@@ -570,26 +575,19 @@ class TrayApp:
         t.start()
 
     def _open_status(self, icon=None, item=None) -> None:
-        def _show() -> None:
-            self._window = StatusWindow(self._db, self._root)
-            self._window.show()
+        # Schedule na thread principal (Tkinter)
+        self._tk_root.after(0, self._show_status)
 
-        t = threading.Thread(target=_show, daemon=True)
-        t.start()
+    def _show_status(self) -> None:
+        self._window = StatusWindow(self._db, self._root)
+        self._window.show()
 
     def _open_config(self, icon=None, item=None) -> None:
-        def _show() -> None:
-            import tkinter as tk  # noqa: PLC0415
+        self._tk_root.after(0, self._show_config)
 
-            from .config_window import ConfigWindow  # noqa: PLC0415
-            # ConfigWindow usa wait_window — precisa de um root Tk existente ou cria temporário
-            root = tk.Tk()
-            root.withdraw()
-            ConfigWindow(self._root).show()
-            root.destroy()
-
-        t = threading.Thread(target=_show, daemon=True)
-        t.start()
+    def _show_config(self) -> None:
+        from .config_window import ConfigWindow  # noqa: PLC0415
+        ConfigWindow(self._root).show()
 
     def _run_once(self, icon=None, item=None) -> None:
         pythonw = self._root / ".venv" / "Scripts" / "pythonw.exe"
@@ -611,6 +609,7 @@ class TrayApp:
         self._running = False
         if self._icon:
             self._icon.stop()
+        self._tk_root.after(0, self._tk_root.destroy)
 
 
 # ---------------------------------------------------------------------------

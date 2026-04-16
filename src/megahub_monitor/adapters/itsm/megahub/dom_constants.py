@@ -66,11 +66,55 @@ TABLE_EXTRACTION_SCRIPT = """
     Array.from(row.querySelectorAll("td")).map((cell) => normalize(cell.innerText))
   );
 
+  // Extract detail links from each row (first <a> with href containing /Chamado/Exibir/)
+  const rowLinks = Array.from(selected.table.querySelectorAll("tbody tr")).map((row) => {
+    const link = row.querySelector('a[href*="/Chamado/Exibir/"]');
+    return link ? link.href : "";
+  });
+
   return {
     headers: selected.bestHeader,
     rows,
+    rowLinks,
     bodyText: normalize(document.body.innerText),
   };
+}
+"""
+
+PAGINATION_SCRIPT = """
+() => {
+  // MegaHub uses <ul class="pagination"> with <li class="page-item">
+  // containing <div class="page-link"> (not <a> tags).
+  // The active page has class "pagina-atual disabled".
+  const container = document.querySelector('ul.pagination');
+  if (!container) return { found: false };
+
+  const items = Array.from(container.querySelectorAll('li.page-item'));
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].classList.contains('pagina-atual')) {
+      // Find next non-disabled sibling that is a page number or "›"
+      for (let j = i + 1; j < items.length; j++) {
+        if (!items[j].classList.contains('disabled')) {
+          return { found: true, nextIndex: j };
+        }
+      }
+    }
+  }
+  return { found: false };
+}
+"""
+
+CLICK_NEXT_PAGE_SCRIPT = """
+(info) => {
+  const container = document.querySelector('ul.pagination');
+  if (!container) return false;
+  const items = Array.from(container.querySelectorAll('li.page-item'));
+  if (info.nextIndex >= items.length) return false;
+
+  const target = items[info.nextIndex];
+  const clickable = target.querySelector('.page-link') || target;
+  clickable.click();
+  return true;
 }
 """
 

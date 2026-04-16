@@ -25,9 +25,11 @@ class TestLoadTeamsConfig:
     def test_missing_file_returns_defaults(self, tmp_path):
         result = Settings._load_teams_config(tmp_path / "nonexistent.toml")
         assert result["enabled"] is False
-        assert result["novo_status_labels"] == ["NOVO"]
+        assert result["novo_status_labels"] == ["Novo"]
         assert "Fechado" in result["completion_status_labels"]
+        assert "Não Homologado" in result["return_to_developer_labels"]
         assert result["approval_timeout_minutes"] == 60
+        assert result["max_new_tickets_per_cycle"] == 10
 
     def test_allocation_enabled_true(self, tmp_path):
         p = tmp_path / "teams.toml"

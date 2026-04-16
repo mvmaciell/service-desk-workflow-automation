@@ -127,8 +127,9 @@ class Settings:
     allocation_enabled: bool = False
     novo_status_labels: list[str] = field(default_factory=lambda: ["NOVO"])
     completion_status_labels: list[str] = field(default_factory=lambda: ["Fechado", "Resolvido"])
-    return_to_developer_labels: list[str] = field(default_factory=lambda: ["Em Processamento"])
+    return_to_developer_labels: list[str] = field(default_factory=lambda: ["Não Homologado", "Revisão"])
     approval_timeout_minutes: int = 60
+    max_new_tickets_per_cycle: int = 10
 
     @classmethod
     def load(cls) -> "Settings":
@@ -181,6 +182,7 @@ class Settings:
             completion_status_labels=alloc["completion_status_labels"],
             return_to_developer_labels=alloc["return_to_developer_labels"],
             approval_timeout_minutes=alloc["approval_timeout_minutes"],
+            max_new_tickets_per_cycle=alloc["max_new_tickets_per_cycle"],
         )
         settings.ensure_directories()
         settings.validate()
@@ -297,10 +299,11 @@ class Settings:
         """Load allocation settings from teams.toml. Returns safe defaults if file absent."""
         defaults: dict = {
             "enabled": False,
-            "novo_status_labels": ["NOVO"],
-            "completion_status_labels": ["Fechado", "Resolvido"],
-            "return_to_developer_labels": ["Em Processamento"],
+            "novo_status_labels": ["Novo"],
+            "completion_status_labels": ["Fechado", "Resolvido", "Cancelado"],
+            "return_to_developer_labels": ["Não Homologado", "Revisão"],
             "approval_timeout_minutes": 60,
+            "max_new_tickets_per_cycle": 10,
         }
         if not teams_path.exists():
             return defaults
@@ -326,6 +329,9 @@ class Settings:
             ],
             "approval_timeout_minutes": int(
                 alloc.get("approval_timeout_minutes", defaults["approval_timeout_minutes"])
+            ),
+            "max_new_tickets_per_cycle": int(
+                alloc.get("max_new_tickets_per_cycle", defaults["max_new_tickets_per_cycle"])
             ),
         }
 

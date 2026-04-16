@@ -23,7 +23,17 @@ class LoadAnalyzer:
         self,
         tickets: list[Ticket],
         members: list[TeamMember] | None = None,
+        internal_assignments: dict[str, int] | None = None,
     ) -> list[EnhancedLoadEntry]:
+        """Calculate open ticket load per developer.
+
+        Args:
+            tickets: All visible tickets from the source.
+            members: Team catalog members (enables catalog mode).
+            internal_assignments: Optional {member_id: count} of SDWA-internal
+                allocations not yet reflected in the queue's consultant field.
+                These are added on top of the queue-visible count.
+        """
         counts: Counter[str] = Counter()
 
         for ticket in tickets:
@@ -33,7 +43,7 @@ class LoadAnalyzer:
             counts[consultant] += 1
 
         if members:
-            return self._with_catalog(counts, members)
+            return self._with_catalog(counts, members, internal_assignments)
         return self._legacy(counts)
 
     def calculate_legacy(self, tickets: list[Ticket]) -> list[LoadEntry]:
@@ -51,26 +61,29 @@ class LoadAnalyzer:
         self,
         counts: Counter[str],
         members: list[TeamMember],
+        internal_assignments: dict[str, int] | None = None,
     ) -> list[EnhancedLoadEntry]:
         """Build load board anchored to the team catalog.
 
         - All active developers appear, including those with zero tickets.
         - Ticket counts are matched by member.name (case-insensitive, stripped).
-        - Members not matched by name still appear with count=0.
+        - internal_assignments adds SDWA-tracked load not yet visible in queue.
         """
         name_to_member: dict[str, TeamMember] = {
             m.name.strip().lower(): m
             for m in members
             if m.active and m.role in ("developer",)
         }
+        extra = internal_assignments or {}
 
         result: list[EnhancedLoadEntry] = []
         for name_lower, member in name_to_member.items():
-            open_tickets = counts.get(member.name.strip(), 0)
+            queue_count = counts.get(member.name.strip(), 0)
+            internal_count = extra.get(member.id, 0)
             result.append(EnhancedLoadEntry(
                 member_id=member.id,
                 member_name=member.name,
-                open_tickets=open_tickets,
+                open_tickets=queue_count + internal_count,
                 role=member.role,
             ))
 

@@ -371,6 +371,50 @@ class SQLiteStateRepository(StateRepository):
             )
 
     # ------------------------------------------------------------------
+    # Snapshot queries
+    # ------------------------------------------------------------------
+    def get_ticket_from_snapshot(self, ticket_number: str, source_id: str | None = None) -> Ticket | None:
+        """Retrieve a ticket from the most recent snapshot containing it."""
+        with self._connect() as conn:
+            if source_id:
+                rows = conn.execute(
+                    "SELECT payload_json FROM source_snapshots WHERE source_id = ? ORDER BY collected_at DESC LIMIT 5",
+                    (source_id,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT payload_json FROM source_snapshots ORDER BY collected_at DESC LIMIT 5",
+                ).fetchall()
+            for row in rows:
+                tickets = json.loads(row["payload_json"])
+                for t in tickets:
+                    if t.get("number") == ticket_number:
+                        return Ticket(
+                            number=t["number"],
+                            source_id=t.get("source_id", source_id or ""),
+                            source_name=t.get("source_name", ""),
+                            source_kind=t.get("source_kind", ""),
+                            title=t.get("title", ""),
+                            customer_ticket_number=t.get("customer_ticket_number", ""),
+                            company=t.get("company", ""),
+                            front=t.get("front", ""),
+                            ticket_type=t.get("ticket_type", ""),
+                            priority=t.get("priority", ""),
+                            ticket_status=t.get("ticket_status", ""),
+                            due_date=t.get("due_date", ""),
+                            consultant=t.get("consultant", ""),
+                        )
+        return None
+
+    def get_source_status(self) -> list[dict[str, Any]]:
+        """Return last run info for all sources."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT source_id, baseline_initialized_at, last_run_at, last_success_at FROM source_states",
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    # ------------------------------------------------------------------
     # Utility (legacy — unchanged behavior)
     # ------------------------------------------------------------------
     def forget_ticket(self, ticket_number: str, source_id: str | None = None) -> int:

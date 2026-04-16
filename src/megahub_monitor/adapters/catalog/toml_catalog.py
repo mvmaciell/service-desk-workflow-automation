@@ -34,6 +34,7 @@ class TomlTeamCatalog(TeamCatalog):
                 active=bool(raw.get("active", True)),
                 webhook_url=str(raw.get("webhook_url", "")).strip(),
                 max_concurrent_tickets=int(raw.get("max_concurrent_tickets", 5)),
+                managed_fronts=[str(f).strip().lower() for f in raw.get("managed_fronts", [])],
             )
             self._members[member_id] = member
 

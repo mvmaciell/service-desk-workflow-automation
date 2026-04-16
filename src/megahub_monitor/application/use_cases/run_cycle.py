@@ -12,12 +12,13 @@ from __future__ import annotations
 from logging import Logger
 
 from ...config import Settings, SourceConfig
-from ...domain.enums import AuditAction
+from ...domain.enums import AuditAction, TicketWorkflowState
 from ...domain.models import Ticket
 from ...ports.state_repository import StateRepository
 from ...ports.team_catalog import TeamCatalog
 from ..services.audit_logger import AuditLogger
 from ..services.load_analyzer import LoadAnalyzer
+from .check_approval_timeout import CheckApprovalTimeoutUseCase
 from .detect_completion import DetectCompletionUseCase
 from .detect_new_tickets import DetectNewTicketsUseCase
 from .detect_status_return import DetectStatusReturnUseCase
@@ -56,6 +57,7 @@ class RunCycleUseCase:
         self._notify_completion_uc: NotifyCompletionUseCase | None = None
         self._detect_return_uc: DetectStatusReturnUseCase | None = None
         self._notify_return_uc: NotifyStatusReturnUseCase | None = None
+        self._check_timeout_uc: CheckApprovalTimeoutUseCase | None = None
 
     def set_completion_use_cases(
         self,
@@ -74,6 +76,10 @@ class RunCycleUseCase:
         """Wire status-return detection and notification."""
         self._detect_return_uc = detect_return
         self._notify_return_uc = notify_return
+
+    def set_timeout_use_case(self, check_timeout: CheckApprovalTimeoutUseCase) -> None:
+        """Wire approval timeout checker."""
+        self._check_timeout_uc = check_timeout
 
     def execute_source(
         self,
@@ -114,6 +120,24 @@ class RunCycleUseCase:
                     notifier=self._notifier,
                 )
 
+        # Check for timed-out approvals and send reminders
+        if self._check_timeout_uc and self._catalog and self._notifier:
+            timed_out = self._check_timeout_uc.execute()
+            if timed_out:
+                coordinator = self._catalog.get_coordinator()
+                if coordinator and coordinator.webhook_url:
+                    try:
+                        self._notifier.send_approval_reminder(
+                            coordinator_name=coordinator.name,
+                            webhook_url=coordinator.webhook_url,
+                            timed_out_approvals=timed_out,
+                        )
+                        self._logger.info(
+                            "Lembrete enviado: %s aprovacao(oes) pendente(s).", len(timed_out),
+                        )
+                    except Exception as exc:
+                        self._logger.error("Falha ao enviar lembrete de timeout. %s", exc)
+
         if not detection.new_tickets:
             return
 
@@ -139,6 +163,26 @@ class RunCycleUseCase:
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _count_internal_assignments(self) -> dict[str, int]:
+        """Count tickets assigned via SDWA but not yet reflected in the queue.
+
+        Looks at WorkflowItems in ASSIGNED or IN_PROGRESS state where
+        an approved_member_id exists. Returns {member_id: count}.
+        """
+        from collections import Counter  # noqa: PLC0415
+
+        counts: Counter[str] = Counter()
+        for state in (
+            TicketWorkflowState.ALLOCATION_APPROVED,
+            TicketWorkflowState.ASSIGNED,
+            TicketWorkflowState.IN_PROGRESS,
+        ):
+            items = self._repo.get_items_in_state(state)
+            for item in items:
+                if item.approved_member_id:
+                    counts[item.approved_member_id] += 1
+        return dict(counts)
+
     def _workflow_path(
         self,
         source: SourceConfig,
@@ -147,54 +191,94 @@ class RunCycleUseCase:
         collected_at: str,
     ) -> None:
         members = self._catalog.list_active_members()
-        enhanced = self._load_analyzer.calculate(all_tickets, members=members)
+
+        # Reconcile: count SDWA-internal assignments not yet reflected in queue
+        internal_assignments = self._count_internal_assignments()
+
+        enhanced = self._load_analyzer.calculate(
+            all_tickets, members=members, internal_assignments=internal_assignments,
+        )
         current_load: dict[str, int] = {
             e.member_id: e.open_tickets for e in enhanced if e.member_id
         }
         coordinator = self._catalog.get_coordinator()
 
-        # --- Suggest allocation for new tickets ---
-        for ticket in new_tickets:
+        # --- Filter by coordinator's managed_fronts ---
+        filtered = new_tickets
+        if coordinator and coordinator.managed_fronts:
+            managed = set(coordinator.managed_fronts)
+            filtered = [t for t in new_tickets if t.front.strip().lower() in managed]
+            skipped = len(new_tickets) - len(filtered)
+            if skipped:
+                self._logger.info(
+                    "Fonte '%s': %s chamado(s) fora das frentes do coordenador (ignorados).",
+                    source.id,
+                    skipped,
+                )
+
+        if not filtered:
+            return
+
+        # --- Prioritize: Imediata > Urgente > Normal > Baixa > sem prioridade ---
+        priority_order = {"imediata": 0, "urgente": 1, "normal": 2, "baixa": 3}
+        filtered.sort(key=lambda t: priority_order.get(t.priority.strip().lower(), 4))
+
+        # --- Apply per-cycle limit to avoid flooding ---
+        limit = self._settings.max_new_tickets_per_cycle
+        if len(filtered) > limit:
+            self._logger.warning(
+                "Fonte '%s': %s chamados novos detectados, limitando sugestoes a %s. "
+                "Restante sera processado no proximo ciclo.",
+                source.id,
+                len(filtered),
+                limit,
+            )
+            # Remaining tickets stay as DETECTED — will be picked up next cycle
+            filtered = filtered[:limit]
+
+        # --- Suggest allocation for each ticket ---
+        ticket_suggestions: list[tuple[Ticket, list]] = []
+        for ticket in filtered:
             suggestions = self._suggest_uc.execute(
                 ticket=ticket,
                 members=members,
                 current_load=current_load,
             )
+            ticket_suggestions.append((ticket, suggestions))
 
-            if not self._notifier:
-                continue
+        # --- Send consolidated card to coordinator ---
+        if not self._notifier:
+            return
 
-            if coordinator and coordinator.webhook_url:
-                try:
-                    self._notifier.send_allocation_suggestion(
-                        coordinator_name=coordinator.name,
-                        webhook_url=coordinator.webhook_url,
-                        ticket=ticket,
-                        suggestions=suggestions,
-                        load_board=enhanced,
-                    )
-                    self._logger.info(
-                        "Chamado %s: sugestao de alocacao enviada para %s.",
-                        ticket.number,
-                        coordinator.name,
-                    )
-                except Exception as exc:
-                    self._logger.error(
-                        "Falha ao notificar coordenador para o chamado %s. %s",
-                        ticket.number,
-                        exc,
-                    )
-            elif coordinator:
-                self._logger.warning(
-                    "Coordenador '%s' sem webhook configurado — sugestao nao enviada para chamado %s.",
+        if coordinator and coordinator.webhook_url:
+            try:
+                self._notifier.send_batch_allocation_suggestion(
+                    coordinator_name=coordinator.name,
+                    webhook_url=coordinator.webhook_url,
+                    ticket_suggestions=ticket_suggestions,
+                    load_board=enhanced,
+                )
+                self._logger.info(
+                    "Fonte '%s': card consolidado com %s sugestao(oes) enviado para %s.",
+                    source.id,
+                    len(ticket_suggestions),
                     coordinator.name,
-                    ticket.number,
                 )
-            else:
-                self._logger.warning(
-                    "Sem coordenador no catalogo — sugestao nao enviada para chamado %s.",
-                    ticket.number,
+            except Exception as exc:
+                self._logger.error(
+                    "Falha ao notificar coordenador. %s", exc,
                 )
+        elif coordinator:
+            self._logger.warning(
+                "Coordenador '%s' sem webhook configurado — %s sugestao(oes) nao enviada(s).",
+                coordinator.name,
+                len(ticket_suggestions),
+            )
+        else:
+            self._logger.warning(
+                "Sem coordenador no catalogo — %s sugestao(oes) nao enviada(s).",
+                len(ticket_suggestions),
+            )
 
     def _legacy_path(
         self,

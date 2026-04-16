@@ -38,6 +38,7 @@ class Ticket:
     due_date: str = ""
     time_to_expire: str = ""
     consultant: str = ""
+    detail_url: str = ""
     collected_at: str = field(default_factory=utc_now_iso)
     raw_fields: dict[str, str] = field(default_factory=dict)
 
@@ -63,6 +64,7 @@ class Ticket:
             "due_date": self.due_date,
             "time_to_expire": self.time_to_expire,
             "consultant": self.consultant,
+            "detail_url": self.detail_url,
             "collected_at": self.collected_at,
             "raw_fields": self.raw_fields,
         }
@@ -131,6 +133,7 @@ class TeamMember:
     active: bool = True
     webhook_url: str = ""
     max_concurrent_tickets: int = 5
+    managed_fronts: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

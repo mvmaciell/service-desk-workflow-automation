@@ -165,3 +165,36 @@ class TestCalculateWithCatalog:
         result = analyzer.calculate(tickets, members=[])
         assert len(result) == 1
         assert result[0].member_id == ""  # legacy path
+
+
+class TestReconciliation:
+    """calculate() with internal_assignments adds SDWA-tracked load."""
+
+    def test_internal_assignments_added_to_queue_count(self, make_ticket):
+        analyzer = LoadAnalyzer()
+        members = [_make_member("dev-1", "Alice"), _make_member("dev-2", "Bob")]
+        tickets = [make_ticket(consultant="Alice")]
+        # Bob has 2 internal assignments not yet reflected in queue
+        result = analyzer.calculate(
+            tickets, members=members, internal_assignments={"dev-2": 2},
+        )
+        alice = next(e for e in result if e.member_name == "Alice")
+        bob = next(e for e in result if e.member_name == "Bob")
+        assert alice.open_tickets == 1  # queue only
+        assert bob.open_tickets == 2  # internal only
+
+    def test_both_queue_and_internal(self, make_ticket):
+        analyzer = LoadAnalyzer()
+        members = [_make_member("dev-1", "Alice")]
+        tickets = [make_ticket(consultant="Alice"), make_ticket(consultant="Alice")]
+        result = analyzer.calculate(
+            tickets, members=members, internal_assignments={"dev-1": 1},
+        )
+        assert result[0].open_tickets == 3  # 2 queue + 1 internal
+
+    def test_no_internal_assignments_unchanged(self, make_ticket):
+        analyzer = LoadAnalyzer()
+        members = [_make_member("dev-1", "Alice")]
+        tickets = [make_ticket(consultant="Alice")]
+        result = analyzer.calculate(tickets, members=members, internal_assignments=None)
+        assert result[0].open_tickets == 1

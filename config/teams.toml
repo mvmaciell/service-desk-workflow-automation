@@ -1,87 +1,281 @@
 # =============================================================================
-# SDWA — Service Desk Workflow Automation
-# Team catalog configuration
+# SDWA — Team catalog configuration
 #
-# This file defines:
-#   - Team members (developers, coordinators, managers)
-#   - Allocation rules for routing tickets
+# Atualizado com equipe real AMS ABAP.
+# Demais frentes mantem placeholder ate mapeamento completo.
 #
-# Place a customized copy at config/local/teams.toml to override this default.
-# If the file is absent, the allocation workflow is disabled and the system
-# falls back to the legacy notification-only mode.
+# Skills devem corresponder as frentes do MegaHub (case-insensitive):
+#   ams fi, ams hr, ams mm, ams sd, ams abap, ams grc ac, ams pm, ams ps,
+#   ams co, ams qm, ams ewm, ams ccs fi/ca, ams ccs dm, ams ccs billing,
+#   ams sap business one, ams solman, ams basis, basis,
+#   csg hr, csg mm, csg abap, csg sd, csg fi, csg ps, csg pm,
+#   multiplataforma, integration & df-e, portal, infra
 # =============================================================================
 
 # ---------------------------------------------------------------------------
-# Members
-# Each [[members]] block defines one person.
-#
-# Fields:
-#   id        — unique slug, used in CLI commands (e.g. approve --member <id>)
-#   name      — display name shown in Teams notifications
-#   role      — "developer" | "coordinator" | "manager"
-#   skills    — list of skill tags used for allocation matching (lowercase)
-#   active    — set false to exclude from allocation and load board
-#   webhook_url — Teams webhook for individual notifications (optional)
-#   max_concurrent_tickets — soft cap for load-based ranking (default: 5)
+# Lideranca
 # ---------------------------------------------------------------------------
 
 [[members]]
-id = "dev-1"
-name = "Dev 1 (substitua pelo nome real)"
-role = "developer"
-skills = ["abap", "fiori"]
+id = "coord-thiago"
+name = "Thiago de Amorim Ramos"
+role = "coordinator"
+skills = []
 active = true
-webhook_url = ""
-max_concurrent_tickets = 5
+webhook_url = "https://defaultba1a026c162c4efcb18f41d35c67f2.fb.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/dd96edc5637a45c682b953d4add11d9c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=RyNCu1IF6R2Hhxvel7svmqLqCQKxQDSr0dCG6Db2n88"
+max_concurrent_tickets = 0
+managed_fronts = []
 
 [[members]]
-id = "dev-2"
-name = "Dev 2 (substitua pelo nome real)"
-role = "developer"
-skills = ["abap", "basis"]
-active = true
-webhook_url = ""
-max_concurrent_tickets = 5
-
-[[members]]
-id = "coordenador-1"
-name = "Coordenador (substitua pelo nome real)"
+id = "gestor-diego"
+name = "Diego Henrique da Silveira"
 role = "coordinator"
 skills = []
 active = true
 webhook_url = ""
 max_concurrent_tickets = 0
+managed_fronts = []
+
+[[members]]
+id = "head-adriana"
+name = "Adriana Casagrande"
+role = "coordinator"
+skills = []
+active = true
+webhook_url = ""
+max_concurrent_tickets = 0
+managed_fronts = []
+
+# ---------------------------------------------------------------------------
+# AMS ABAP — equipe real (10 devs)
+# ---------------------------------------------------------------------------
+
+[[members]]
+id = "abap-carlos"
+name = "Carlos Conceicao Silva"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "abap-geyza"
+name = "Geyza Miranda da Rocha"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "abap-joao-ferrareis"
+name = "Joao Victor Ferrareis Ribeiro"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "abap-joao-goncalves"
+name = "Joao Victor Goncalves Oliveira"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "abap-leandro-alcoforado"
+name = "Leandro Alcoforado Salgues de Morais Falcao"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "abap-leandro-fachinoti"
+name = "Leandro Giuberti Fachinoti"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "abap-lucas"
+name = "Lucas da Silva de Paula"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "abap-marcio"
+name = "Marcio Dantas de Franca"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "abap-marcus"
+name = "Marcus Vinicius Maciel Vieira"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = "https://defaultba1a026c162c4efcb18f41d35c67f2.fb.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/dd96edc5637a45c682b953d4add11d9c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=RyNCu1IF6R2Hhxvel7svmqLqCQKxQDSr0dCG6Db2n88"
+max_concurrent_tickets = 5
+
+[[members]]
+id = "abap-miguel"
+name = "Miguel Pevidor Cruz"
+role = "developer"
+skills = ["ams abap", "abap"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 5
+
+# ---------------------------------------------------------------------------
+# Service Desk
+# ---------------------------------------------------------------------------
+
+[[members]]
+id = "sd-miqueias"
+name = "Miqueias Martins da Silva"
+role = "developer"
+skills = ["service desk"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 10
+
+[[members]]
+id = "sd-ryan"
+name = "Ryan Machado Oliveira"
+role = "developer"
+skills = ["service desk"]
+active = true
+webhook_url = ""
+max_concurrent_tickets = 10
+
+# ---------------------------------------------------------------------------
+# Outras frentes — placeholder (desativados ate mapear equipe real)
+# ---------------------------------------------------------------------------
+
+[[members]]
+id = "dev-fi-01"
+name = "Dev FI 01"
+role = "developer"
+skills = ["ams fi"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-hr-01"
+name = "Dev HR 01"
+role = "developer"
+skills = ["ams hr", "csg hr"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-mm-01"
+name = "Dev MM 01"
+role = "developer"
+skills = ["ams mm", "csg mm"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-sd-01"
+name = "Dev SD 01"
+role = "developer"
+skills = ["ams sd", "csg sd"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-basis-01"
+name = "Dev BASIS 01"
+role = "developer"
+skills = ["basis", "ams basis"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-grc-01"
+name = "Dev GRC 01"
+role = "developer"
+skills = ["ams grc ac"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-pm-01"
+name = "Dev PM/PS 01"
+role = "developer"
+skills = ["ams pm", "ams ps", "csg ps"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-ccs-01"
+name = "Dev CCS 01"
+role = "developer"
+skills = ["ams ccs fi/ca", "ams ccs dm", "ams ccs billing"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-multi-01"
+name = "Dev Multi 01"
+role = "developer"
+skills = ["multiplataforma", "integration & df-e", "portal"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
+
+[[members]]
+id = "dev-b1-01"
+name = "Dev B1 01"
+role = "developer"
+skills = ["ams sap business one"]
+active = false
+webhook_url = ""
+max_concurrent_tickets = 5
 
 # ---------------------------------------------------------------------------
 # Allocation rules
-# Controls how ticket suggestions are generated.
 # ---------------------------------------------------------------------------
 [allocation]
-# Enable the full allocation workflow (suggest + approve + assign + complete).
-# Set false to use legacy notification-only mode.
-enabled = false
+enabled = true
 
-# Order of criteria for ranking developers (first = highest priority):
-#   skill_match     — member has a skill matching ticket.front (case-insensitive)
-#   current_load    — fewer open tickets ranks higher
-#   historical_load — fewer historically assigned tickets ranks higher
-#   alphabetical    — alphabetical tiebreak (deterministic)
 strategy_order = ["skill_match", "current_load", "historical_load", "alphabetical"]
-
-# Maximum number of suggestions shown to the coordinator
 max_suggestions = 3
 
-# Status values (from MegaHub) that indicate a ticket is NEW.
-# Tickets with these statuses on first run will be included in the workflow.
-novo_status_labels = ["NOVO", "Novo", "novo"]
+# Status NOVO — quais status indicam chamado novo na fila
+novo_status_labels = ["Novo"]
 
-# Status values that indicate a ticket has been completed.
-# Completion detection polls tickets in ASSIGNED/IN_PROGRESS state.
+# Status de conclusao (fechamento do chamado)
 completion_status_labels = ["Fechado", "Resolvido", "Cancelado"]
 
-# Status values that indicate a ticket was returned to the developer
-# (e.g., rejected in homologation). Developer is notified via general webhook.
-return_to_developer_labels = ["Em Processamento", "Em processamento"]
+# Status que indicam retorno ao desenvolvedor
+return_to_developer_labels = ["Não Homologado", "Revisão"]
 
-# How long (minutes) to wait for coordinator approval before logging a timeout
+# Timeout de aprovacao (minutos) antes de registrar alerta
 approval_timeout_minutes = 60
+
+# Limite maximo de chamados novos por ciclo para enviar sugestoes.
+max_new_tickets_per_cycle = 10
