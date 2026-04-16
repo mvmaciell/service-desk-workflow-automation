@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from typing import Any
+
 from ..domain.models import (
     AllocationSuggestion,
     EnhancedLoadEntry,
@@ -72,7 +74,7 @@ class Notifier(ABC):
         self,
         coordinator_name: str,
         webhook_url: str,
-        timed_out_approvals: list[dict],
+        timed_out_approvals: list[dict[str, Any]],
     ) -> NotificationResult: ...
 
     @abstractmethod
