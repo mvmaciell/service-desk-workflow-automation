@@ -50,11 +50,6 @@ class DetectNewTicketsUseCase:
         if not self._repo.is_baseline_initialized(source.id):
             return self._handle_first_run(source, tickets, collected_at)
 
-        baseline_version = self._repo.get_baseline_version(source.id)
-        if baseline_version < 2:
-            # Legacy source — keep original silencing behavior
-            return self._handle_subsequent_run(source, tickets, collected_at)
-
         return self._handle_subsequent_run(source, tickets, collected_at)
 
     # ------------------------------------------------------------------
