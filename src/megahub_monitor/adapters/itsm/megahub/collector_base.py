@@ -5,7 +5,7 @@ import re
 import unicodedata
 from logging import Logger
 
-from playwright.sync_api import Page
+from playwright.sync_api import Error as PlaywrightError, Page, TimeoutError as PlaywrightTimeoutError
 
 from ....config import Settings, SourceConfig
 from ....domain.errors import AuthenticationRequiredError, CollectionError
@@ -59,7 +59,7 @@ class BaseQueueCollector:
             page.locator(f"text={self.page_title}").first.wait_for(
                 timeout=self.settings.playwright_timeout_ms
             )
-        except Exception as exc:
+        except PlaywrightTimeoutError as exc:
             raise AuthenticationRequiredError(
                 f"Nao foi possivel acessar a tela '{self.page_title}' "
                 f"para a fonte '{self.source.id}'."
@@ -82,7 +82,7 @@ class BaseQueueCollector:
                 button.click()
                 page.wait_for_load_state("networkidle", timeout=10000)
                 return
-        except Exception:
+        except (PlaywrightTimeoutError, PlaywrightError):
             pass
 
         page.wait_for_timeout(1000)
@@ -91,7 +91,7 @@ class BaseQueueCollector:
         try:
             page.locator("table").last.wait_for(timeout=10000)
             page.wait_for_timeout(1500)
-        except Exception as exc:
+        except PlaywrightTimeoutError as exc:
             raise CollectionError(
                 f"A grade da fonte '{self.source.id}' nao ficou disponivel para leitura."
             ) from exc

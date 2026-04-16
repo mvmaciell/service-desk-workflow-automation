@@ -64,9 +64,13 @@ class LoadAnalyzer:
             if m.active and m.role in ("developer",)
         }
 
+        lowered_counts: Counter[str] = Counter()
+        for key, val in counts.items():
+            lowered_counts[key.strip().lower()] += val
+
         result: list[EnhancedLoadEntry] = []
         for name_lower, member in name_to_member.items():
-            open_tickets = counts.get(member.name.strip(), 0)
+            open_tickets = lowered_counts.get(name_lower, 0)
             result.append(EnhancedLoadEntry(
                 member_id=member.id,
                 member_name=member.name,

@@ -19,7 +19,10 @@ def _to_bool(value: str | None, default: bool) -> bool:
 def _to_int(value: str | None, default: int) -> int:
     if value is None or not value.strip():
         return default
-    return int(value)
+    try:
+        return int(value)
+    except ValueError:
+        return default
 
 
 def _resolve_path(project_root: Path, raw_value: str | None, default_relative: str) -> Path:
@@ -260,6 +263,14 @@ class Settings:
             webhook_url = str(raw.get("webhook_url", "")).strip()
             if webhook_env:
                 webhook_url = os.getenv(webhook_env, "").strip() or webhook_url
+
+            if webhook_url and not webhook_url.startswith(("http://", "https://")):
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Perfil '%s': webhook_url invalido ignorado (deve iniciar com http:// ou https://).",
+                    profile_id,
+                )
+                webhook_url = ""
 
             profiles[profile_id] = NotificationProfileConfig(
                 id=profile_id,
