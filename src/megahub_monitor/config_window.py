@@ -1,100 +1,18 @@
-"""ConfigWindow — janela de configuração completa do SDWA.
+"""ConfigWindow — janela de configuracao completa do SDWA.
 
 Permite editar perfis (webhooks), membros da equipe e fontes (URLs)
 sem tocar nos arquivos TOML manualmente.
-Também suporta export/import de um arquivo de configuração simplificado
+Tambem suporta export/import de um arquivo de configuracao simplificado
 para troca com o coordenador.
 """
 from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any  # noqa: F401
 
-# ---------------------------------------------------------------------------
-# TOML writer mínimo (sem dependência de tomli_w)
-# ---------------------------------------------------------------------------
-
-def _toml_scalar(val: Any) -> str:
-    if isinstance(val, bool):
-        return "true" if val else "false"
-    if isinstance(val, int):
-        return str(val)
-    if isinstance(val, float):
-        return str(val)
-    # string — escapar aspas duplas
-    escaped = str(val).replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
-
-
-def _toml_list(items: list) -> str:
-    return "[" + ", ".join(_toml_scalar(v) for v in items) + "]"
-
-
-def _write_toml(data: dict, comment_header: str = "") -> str:
-    """Serializa um dict em TOML básico — suporta os padrões usados nos configs."""
-    lines: list[str] = []
-    if comment_header:
-        for line in comment_header.splitlines():
-            lines.append(f"# {line}" if line.strip() else "#")
-        lines.append("")
-
-    # 1. Escalares no topo
-    for key, val in data.items():
-        if not isinstance(val, (dict, list)) or (isinstance(val, list) and (not val or not isinstance(val[0], dict))):
-            if isinstance(val, list):
-                lines.append(f"{key} = {_toml_list(val)}")
-            else:
-                lines.append(f"{key} = {_toml_scalar(val)}")
-
-    # 2. [[array of tables]] — ex: [[members]], [[profiles]], [[sources]]
-    for key, val in data.items():
-        if isinstance(val, list) and val and isinstance(val[0], dict):
-            for item in val:
-                lines.append("")
-                lines.append(f"[[{key}]]")
-                for k, v in item.items():
-                    if isinstance(v, list):
-                        lines.append(f"{k} = {_toml_list(v)}")
-                    elif not isinstance(v, dict):
-                        lines.append(f"{k} = {_toml_scalar(v)}")
-
-    # 3. [section] — ex: [allocation]
-    for key, val in data.items():
-        if isinstance(val, dict):
-            lines.append("")
-            lines.append(f"[{key}]")
-            for k, v in val.items():
-                if isinstance(v, list):
-                    lines.append(f"{k} = {_toml_list(v)}")
-                elif not isinstance(v, dict):
-                    lines.append(f"{k} = {_toml_scalar(v)}")
-
-    return "\n".join(lines) + "\n"
-
-
-# ---------------------------------------------------------------------------
-# Helpers de localização de arquivos de config
-# ---------------------------------------------------------------------------
-
-def _find_config(project_root: Path, local: str, base: str) -> Path:
-    local_path = project_root / local
-    if local_path.exists():
-        return local_path
-    return project_root / base
-
-
-def _load_toml(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    with path.open("rb") as fh:
-        return tomllib.load(fh)
-
-
-def _save_toml(path: Path, data: dict, header: str = "") -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_write_toml(data, header), encoding="utf-8")
-
+from .config_io import find_config as _find_config
+from .config_io import load_toml as _load_toml
+from .config_io import save_toml as _save_toml
 
 # ---------------------------------------------------------------------------
 # ConfigWindow

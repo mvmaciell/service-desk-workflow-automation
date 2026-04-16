@@ -1,31 +1,35 @@
+# Arquivo de exemplo — NAO edite manualmente.
+# A configuracao real e gerada pelo wizard em config/local/profiles.toml.
+# Se voce precisa de config manual, copie e edite em config/local/.
+
 [[recipients]]
-id = "marcus"
-name = "Marcus Vinicius Maciel Vieira"
+id = "exemplo-consultor"
+name = "Nome do Consultor"
 role = "consultor"
-enabled = true
+enabled = false
 webhook_env = "TEAMS_WEBHOOK_URL"
 
 [[recipients]]
-id = "augusto"
-name = "Augusto Bellucio Ker"
+id = "exemplo-coordenador"
+name = "Nome do Coordenador"
 role = "coordenador tecnico"
-enabled = true
+enabled = false
 webhook_env = "TEAMS_WEBHOOK_URL"
 
 [[rules]]
 id = "alerta-consultor-minha-fila"
 name = "Alerta consultor Minha Fila"
-enabled = true
-source_ids = ["minha_fila_marcus"]
-recipient_ids = ["marcus"]
+enabled = false
+source_ids = ["minha-fila-principal"]
+recipient_ids = ["exemplo-consultor"]
 title_prefix = "Alerta do Consultor"
 include_load = false
 
 [[rules]]
 id = "alerta-coordenador-fila"
 name = "Alerta coordenador Fila"
-enabled = true
-source_ids = ["fila_gerencial"]
-recipient_ids = ["augusto"]
+enabled = false
+source_ids = ["fila-principal"]
+recipient_ids = ["exemplo-coordenador"]
 title_prefix = "Alerta do Coordenador"
 include_load = true

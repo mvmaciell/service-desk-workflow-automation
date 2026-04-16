@@ -65,6 +65,31 @@ class BrowserSession:
                     f"no contexto '{self.browser_context.id}'."
                 )
 
+    def open_login_browser(self, login_url: str):
+        """Open a headed browser for login and return (playwright, context, page).
+
+        The caller is responsible for closing the context when done.
+        Used by the setup wizard (GUI) to avoid blocking on input().
+        """
+        self.logger.info(
+            "Abrindo navegador para login no contexto '%s'.",
+            self.browser_context.id,
+        )
+        pw = sync_playwright().start()
+        context = pw.chromium.launch_persistent_context(
+            user_data_dir=str(self.browser_context.profile_dir),
+            channel=self.settings.playwright_channel,
+            headless=False,
+            viewport={"width": 1600, "height": 1200},
+            locale="pt-BR",
+            args=["--start-maximized"],
+        )
+        page = context.pages[0] if context.pages else context.new_page()
+        page.set_default_timeout(self.settings.playwright_timeout_ms)
+        page.set_default_navigation_timeout(self.settings.playwright_timeout_ms)
+        page.goto(login_url, wait_until="domcontentloaded")
+        return pw, context, page
+
     def is_authenticated(self, page, validation_text: str) -> bool:
         try:
             page.locator(f"text={validation_text}").first.wait_for(timeout=5000)

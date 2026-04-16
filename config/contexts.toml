@@ -1,35 +1,32 @@
-[[contexts]]
-id = "marcus-session"
-name = "Sessao Marcus"
-enabled = true
-profile_dir = "data/browser-profile"
+# Arquivo de exemplo — NAO edite manualmente.
+# A configuracao real e gerada pelo wizard em config/local/contexts.toml.
+# Se voce precisa de config manual, copie este arquivo para config/local/ e edite la.
 
 [[contexts]]
-id = "gestor-session"
-name = "Sessao Gestor"
+id = "main-session"
+name = "Sessao Principal"
 enabled = false
-profile_dir = "data/browser-profile-gestor"
+profile_dir = "data/browser-profile-main"
 
 [[sources]]
-id = "minha_fila_marcus"
-name = "Minha Fila Marcus"
+id = "minha-fila-principal"
+name = "Minha Fila Principal"
 kind = "minha_fila"
-context_id = "marcus-session"
+context_id = "main-session"
 url = "https://megahub.megawork.com/Chamado/MinhaFila"
-enabled = true
+enabled = false
 first_page_only = true
-consultant_name = "Marcus Vinicius Maciel Vieira"
+consultant_name = "SEU NOME AQUI"
 only_open = true
 only_assigned_to_me = true
 
 [[sources]]
-id = "fila_gerencial"
-name = "Fila Gerencial"
+id = "fila-principal"
+name = "Fila Principal"
 kind = "fila"
-context_id = "gestor-session"
+context_id = "main-session"
 url = "https://megahub.megawork.com/Chamado/Index"
 enabled = false
 first_page_only = true
 include_closed = false
 include_assigned = true
-

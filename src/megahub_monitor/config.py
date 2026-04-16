@@ -144,7 +144,8 @@ class Settings:
 
     @classmethod
     def load(cls) -> "Settings":
-        project_root = Path(__file__).resolve().parents[2]
+        from ._paths import get_project_root
+        project_root = get_project_root()
         load_dotenv(project_root / ".env", override=False)
 
         contexts_path = _resolve_existing_path(

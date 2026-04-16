@@ -28,7 +28,7 @@ from .services import LoadAnalyzer, MonitorService, NotificationRouter, RunOnceS
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Monitor multi-fonte do MegaHub.")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command")
 
     login_parser = subparsers.add_parser("login", help="Abre o navegador com perfil persistente para login manual.")
     login_parser.add_argument("--context", dest="context_id", help="Id do contexto configurado.")
@@ -78,12 +78,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inicia o icone SDWA na bandeja do sistema (painel de status e controle).",
     )
 
+    subparsers.add_parser(
+        "install-browsers",
+        help="Instala os navegadores do Playwright (executado automaticamente na instalacao).",
+    )
+
     return parser
 
 
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+
+    # Default: sem comando -> tray
+    if args.command is None:
+        args.command = "tray"
+
+    # install-browsers nao precisa de Settings
+    if args.command == "install-browsers":
+        import subprocess
+        import sys
+
+        proc = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+        )
+        return proc.returncode
 
     settings = Settings.load()
     logger = configure_logging(settings.log_file_path)
@@ -198,11 +217,22 @@ def main() -> int:
             return _handle_audit_trail(args, repository, logger)
 
         if args.command == "tray":
-            from pathlib import Path  # noqa: PLC0415
-
+            from ._paths import get_project_root  # noqa: PLC0415
+            from .setup_wizard import is_first_run  # noqa: PLC0415
             from .tray_app import TrayApp, resolve_db_path  # noqa: PLC0415
 
-            project_root = Path(__file__).resolve().parents[2]
+            project_root = get_project_root()
+
+            if is_first_run(project_root):
+                from .setup_wizard import SetupWizard  # noqa: PLC0415
+
+                wizard = SetupWizard(project_root)
+                if not wizard.run():
+                    logger.info("Configuracao inicial cancelada pelo usuario.")
+                    return 0
+                # Recarregar settings apos wizard gerar os configs
+                settings = Settings.load()
+
             db_path = resolve_db_path(project_root)
             TrayApp(db_path=db_path, project_root=project_root).run()
             return 0
