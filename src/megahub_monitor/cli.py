@@ -88,7 +88,7 @@ def main() -> int:
     settings = Settings.load()
     logger = configure_logging(settings.log_file_path)
 
-    repository = SQLiteRepository(settings.database_path, logger)
+    repository = SQLiteRepository(settings.database_path)
     repository.initialize()
 
     detector = TicketDetector(repository, logger)

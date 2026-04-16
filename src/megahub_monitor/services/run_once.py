@@ -14,7 +14,7 @@ from ..config import Settings, SourceConfig
 from ..domain.errors import AuthenticationRequiredError, LockUnavailableError, NotificationError
 from ..domain.models import Ticket, utc_now_iso
 from ..notifiers.teams_workflow import TeamsWorkflowNotifier
-from ..repository.sqlite_repository import SQLiteRepository
+from ..repository import SQLiteRepository
 from .load_analyzer import LoadAnalyzer
 from .router import NotificationRouter
 
@@ -94,7 +94,7 @@ class RunOnceService:
             return
 
         # Legacy path (preserved exactly when run_cycle is not wired)
-        detection = self.detector.process(source, tickets, collected_at)
+        detection = self.detector.execute(source, tickets, collected_at)
         self.repository.update_source_run(source.id, collected_at, success=True)
 
         if detection.is_baseline:

@@ -10,6 +10,7 @@ from logging import Logger
 import requests
 
 from ...config import Settings
+from ...domain.errors import ConfigurationError, NotificationError
 from ...domain.models import (
     AllocationSuggestion,
     DeliveryRequest,
@@ -18,7 +19,6 @@ from ...domain.models import (
     Ticket,
     utc_now_iso,
 )
-from ...errors import ConfigurationError, NotificationError
 from ...ports.notifier import Notifier
 
 

@@ -148,6 +148,8 @@ class RunCycleUseCase:
         all_tickets: list[Ticket],
         collected_at: str,
     ) -> None:
+        assert self._catalog is not None
+        assert self._suggest_uc is not None
         members = self._catalog.list_active_members()
         enhanced = self._load_analyzer.calculate(all_tickets, members=members)
         current_load: dict[str, int] = {
