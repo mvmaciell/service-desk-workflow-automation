@@ -66,9 +66,16 @@ TABLE_EXTRACTION_SCRIPT = """
     Array.from(row.querySelectorAll("td")).map((cell) => normalize(cell.innerText))
   );
 
+  // Extract detail links from each row (first <a> with href containing /Chamado/Exibir/)
+  const rowLinks = Array.from(selected.table.querySelectorAll("tbody tr")).map((row) => {
+    const link = row.querySelector('a[href*="/Chamado/Exibir/"]');
+    return link ? link.href : "";
+  });
+
   return {
     headers: selected.bestHeader,
     rows,
+    rowLinks,
     bodyText: normalize(document.body.innerText),
   };
 }

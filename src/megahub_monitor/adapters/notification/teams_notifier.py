@@ -138,8 +138,13 @@ class TeamsNotifier(Notifier):
         suggestions: list[AllocationSuggestion],
         load_board: list[EnhancedLoadEntry],
     ) -> dict:
+        chamado_value = (
+            f"[{ticket.number}]({ticket.detail_url})"
+            if ticket.detail_url
+            else ticket.number
+        )
         ticket_facts = [
-            {"title": "Chamado", "value": ticket.number},
+            {"title": "Chamado", "value": chamado_value},
             {"title": "Tipo", "value": ticket.ticket_type or "-"},
             {"title": "Prioridade", "value": ticket.priority or "-"},
             {"title": "Status", "value": ticket.ticket_status or "-"},
@@ -149,26 +154,9 @@ class TeamsNotifier(Notifier):
         if ticket.front:
             ticket_facts.append({"title": "Frente", "value": ticket.front})
 
-        suggestion_facts = [
-            {
-                "title": f"#{s.rank} {s.member_name}",
-                "value": f"Carga: {s.current_load} | {s.reason}",
-            }
-            for s in suggestions
-        ] or [{"title": "Sugestoes", "value": "Nenhum desenvolvedor disponivel"}]
+        names = ", ".join(s.member_name for s in suggestions) if suggestions else "—"
 
-        load_facts = [
-            {"title": e.member_name, "value": str(e.open_tickets)}
-            for e in load_board
-        ] or [{"title": "Carga", "value": "Sem dados"}]
-
-        # Build approve commands block
-        approve_cmds = "\n".join(
-            f"#{s.rank} {s.member_name}: python main.py approve --ticket {ticket.number} --member {s.member_id}"
-            for s in suggestions
-        ) or f"python main.py approve --ticket {ticket.number} --member <id>"
-
-        body = [
+        body: list[dict] = [
             {
                 "type": "TextBlock",
                 "text": "Sugestao de Alocacao",
@@ -185,28 +173,7 @@ class TeamsNotifier(Notifier):
             {"type": "FactSet", "facts": ticket_facts},
             {
                 "type": "TextBlock",
-                "text": "Desenvolvedores sugeridos",
-                "weight": "Bolder",
-                "wrap": True,
-            },
-            {"type": "FactSet", "facts": suggestion_facts},
-            {
-                "type": "TextBlock",
-                "text": "Quadro de carga atual",
-                "weight": "Bolder",
-                "wrap": True,
-            },
-            {"type": "FactSet", "facts": load_facts},
-            {
-                "type": "TextBlock",
-                "text": "Para aprovar, execute um dos comandos abaixo:",
-                "weight": "Bolder",
-                "wrap": True,
-            },
-            {
-                "type": "TextBlock",
-                "text": approve_cmds,
-                "fontType": "Monospace",
+                "text": names,
                 "wrap": True,
             },
         ]
@@ -240,70 +207,51 @@ class TeamsNotifier(Notifier):
             color = priority_colors.get(prio_lower, "Default")
             prio_label = f" [{ticket.priority}]" if prio_lower in priority_colors else ""
 
+            chamado_value = (
+                f"[{ticket.number}]({ticket.detail_url}){prio_label}"
+                if ticket.detail_url
+                else f"{ticket.number}{prio_label}"
+            )
             ticket_facts = [
-                {"title": "Chamado", "value": f"{ticket.number}{prio_label}"},
+                {"title": "Chamado", "value": chamado_value},
                 {"title": "Frente", "value": ticket.front or "-"},
                 {"title": "Empresa", "value": ticket.company or "-"},
-                {"title": "Tipo", "value": ticket.ticket_type or "-"},
+            ]
+            if ticket.ticket_type:
+                ticket_facts.append({"title": "Tipo", "value": ticket.ticket_type})
+
+            names = ", ".join(s.member_name for s in suggestions) if suggestions else "—"
+
+            items: list[dict] = [
+                {
+                    "type": "TextBlock",
+                    "text": ticket.title or "Sem titulo",
+                    "weight": "Bolder",
+                    "wrap": True,
+                    "color": color,
+                },
+                {"type": "FactSet", "facts": ticket_facts},
+                {
+                    "type": "TextBlock",
+                    "text": names,
+                    "wrap": True,
+                },
             ]
 
-            suggestion_text = " | ".join(
-                f"#{s.rank} {s.member_name} (carga:{s.current_load}, {s.reason})"
-                for s in suggestions
-            ) or "Nenhum dev disponivel"
-
-            approve_cmds = "\n".join(
-                f"python main.py approve --ticket {ticket.number} --member {s.member_id}"
-                for s in suggestions
-            )
-
             body.append({"type": "ColumnSet", "separator": True, "columns": [
-                {"type": "Column", "width": "stretch", "items": [
-                    {
-                        "type": "TextBlock",
-                        "text": ticket.title or "Sem titulo",
-                        "weight": "Bolder",
-                        "wrap": True,
-                        "color": color,
-                    },
-                    {"type": "FactSet", "facts": ticket_facts},
-                    {
-                        "type": "TextBlock",
-                        "text": suggestion_text,
-                        "wrap": True,
-                        "isSubtle": True,
-                        "size": "Small",
-                    },
-                    {
-                        "type": "TextBlock",
-                        "text": approve_cmds,
-                        "fontType": "Monospace",
-                        "wrap": True,
-                        "size": "Small",
-                    },
-                ]},
+                {"type": "Column", "width": "stretch", "items": items},
             ]})
-
-        # Load board at the bottom
-        load_facts = [
-            {"title": e.member_name, "value": str(e.open_tickets)}
-            for e in load_board
-        ] or [{"title": "Carga", "value": "Sem dados"}]
-
-        body.append({
-            "type": "TextBlock",
-            "text": "Quadro de carga atual",
-            "weight": "Bolder",
-            "separator": True,
-            "wrap": True,
-        })
-        body.append({"type": "FactSet", "facts": load_facts})
 
         return self._adaptive_card(body)
 
     def _build_assignment_card(self, developer_name: str, ticket: Ticket) -> dict:
+        chamado_value = (
+            f"[{ticket.number}]({ticket.detail_url})"
+            if ticket.detail_url
+            else ticket.number
+        )
         facts = [
-            {"title": "Chamado", "value": ticket.number},
+            {"title": "Chamado", "value": chamado_value},
             {"title": "Tipo", "value": ticket.ticket_type or "-"},
             {"title": "Prioridade", "value": ticket.priority or "-"},
             {"title": "Status", "value": ticket.ticket_status or "-"},
@@ -336,8 +284,13 @@ class TeamsNotifier(Notifier):
     def _build_completion_card(
         self, coordinator_name: str, ticket: Ticket, completed_by: str
     ) -> dict:
+        chamado_value = (
+            f"[{ticket.number}]({ticket.detail_url})"
+            if ticket.detail_url
+            else ticket.number
+        )
         facts = [
-            {"title": "Chamado", "value": ticket.number},
+            {"title": "Chamado", "value": chamado_value},
             {"title": "Concluido por", "value": completed_by},
             {"title": "Tipo", "value": ticket.ticket_type or "-"},
             {"title": "Prioridade", "value": ticket.priority or "-"},
@@ -368,9 +321,14 @@ class TeamsNotifier(Notifier):
         load_entries: list[EnhancedLoadEntry],
         title_prefix: str,
     ) -> dict:
+        chamado_value = (
+            f"[{ticket.number}]({ticket.detail_url})"
+            if ticket.detail_url
+            else ticket.number
+        )
         facts = [
             {"title": "Destinatario", "value": recipient_name},
-            {"title": "Chamado", "value": ticket.number},
+            {"title": "Chamado", "value": chamado_value},
             {"title": "Tipo", "value": ticket.ticket_type or "-"},
             {"title": "Prioridade", "value": ticket.priority or "-"},
             {"title": "Status", "value": ticket.ticket_status or "-"},
@@ -422,7 +380,11 @@ class TeamsNotifier(Notifier):
             {"title": "Destinatario", "value": delivery.recipient_name},
             {"title": "Perfil", "value": delivery.recipient_role},
             {"title": "Fonte", "value": delivery.source_name},
-            {"title": "Chamado", "value": ticket.number},
+            {"title": "Chamado", "value": (
+                f"[{ticket.number}]({ticket.detail_url})"
+                if ticket.detail_url
+                else ticket.number
+            )},
             {"title": "Tipo", "value": ticket.ticket_type or "-"},
             {"title": "Prioridade", "value": ticket.priority or "-"},
             {"title": "Status", "value": ticket.ticket_status or "-"},

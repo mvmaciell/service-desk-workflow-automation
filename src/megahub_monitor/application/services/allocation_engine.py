@@ -50,7 +50,17 @@ class AllocationEngine:
                 m.name.strip().lower(),           # alphabetical tiebreak
             )
 
-        ranked = sorted(devs, key=_sort_key)[:max_suggestions]
+        sorted_devs = sorted(devs, key=_sort_key)
+
+        # Suggest devs with matching skill OR zero current load
+        candidates = [
+            d for d in sorted_devs
+            if (front_lower and front_lower in d.skills)
+            or current_load.get(d.id, 0) == 0
+        ]
+        # Fallback: if nobody qualifies, use full sorted list
+        pool = candidates if candidates else sorted_devs
+        ranked = pool[:max_suggestions]
 
         result: list[AllocationSuggestion] = []
         for position, member in enumerate(ranked, start=1):

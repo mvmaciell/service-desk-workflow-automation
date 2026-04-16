@@ -134,6 +134,7 @@ class BaseQueueCollector:
     def _build_tickets(self, extracted: dict) -> list[Ticket]:
         headers = extracted.get("headers") or []
         rows = extracted.get("rows") or []
+        row_links: list[str] = extracted.get("rowLinks") or []
         body_text = extracted.get("bodyText", "")
 
         if not headers and "Nenhum chamado encontrado" in body_text:
@@ -148,7 +149,7 @@ class BaseQueueCollector:
         tickets: list[Ticket] = []
         seen_numbers: set[str] = set()
 
-        for row in rows:
+        for row_index, row in enumerate(rows):
             if not row:
                 continue
             if len(row) == 1 and "Nenhum chamado encontrado" in row[0]:
@@ -156,6 +157,7 @@ class BaseQueueCollector:
 
             raw_fields: dict[str, str] = {}
             canonical_fields: dict[str, str] = {}
+            detail_url = row_links[row_index] if row_index < len(row_links) else ""
 
             for index, cell in enumerate(row):
                 if index >= len(headers):
@@ -202,6 +204,7 @@ class BaseQueueCollector:
                     due_date=canonical_fields.get("due_date", ""),
                     time_to_expire=canonical_fields.get("time_to_expire", ""),
                     consultant=canonical_fields.get("consultant", self.source.consultant_name),
+                    detail_url=detail_url,
                     raw_fields=raw_fields,
                 )
             )
